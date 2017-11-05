@@ -52,5 +52,5 @@ void init(unsigned long memory);
 void free_nodes(node* n); //questo fa la free fisicamente
 void free_node(node* n);
 node* request_memory(unsigned pages);
-unsigned log2_(unsigned long value);
-unsigned rand_lim(unsigned limit);
+//unsigned log2_(unsigned long value);
+//unsigned rand_lim(unsigned limit);
