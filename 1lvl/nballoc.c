@@ -3,34 +3,50 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/mman.h>
-#include <errno.h>
-#include <sys/wait.h>
 #include "nballoc.h"
 #include "utils.h"
 
 
-#define OCCUPY ((unsigned long) (0x10))
-#define MASK_CLEAN_LEFT_COALESCE ((unsigned long)(~(MASK_LEFT_COALESCE)))
-#define MASK_CLEAN_RIGHT_COALESCE ((unsigned long)(~(MASK_RIGHT_COALESCE)))
-#define MASK_OCCUPY_RIGHT ((unsigned long) (0x1))
-#define MASK_OCCUPY_LEFT ((unsigned long) (0x2))
-#define MASK_LEFT_COALESCE ((unsigned long) (0x8))
-#define MASK_RIGHT_COALESCE ((unsigned long) (0x4))
-//PARAMETRIZZAZIONE
-#define FREE_BLOCK ((unsigned long) 0)
-#define OCCUPY_BLOCK ((OCCUPY) | (MASK_OCCUPY_LEFT) | (MASK_OCCUPY_RIGHT))
-#define MASK_CLEAN_OCCUPIED_LEFT (~(MASK_OCCUPY_LEFT))
-#define MASK_CLEAN_OCCUPIED_RIGHT (~(MASK_OCCUPY_RIGHT))
+/*********************************************     
+*       MASKS FOR ACCESSING NODE BITMAPS
+*********************************************
 
-#define ROOT (tree[1])
-#define left(n) (tree[((n->pos)*(2))])
-#define right(n) (tree[(((n->pos)*(2))+(1))])
-#define left_index(n) (((n)->pos)*(2))
-#define right_index(n) ((((n)->pos)*(2))+(1))
-#define parent(n) (tree[(unsigned)(((n)->pos)/(2))])
-#define parent_index(n) ((unsigned)(((n)->pos)/(2)))
-#define level(n) ((unsigned) ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) )))
+Bitmap for each node:
 
+  32-----------5-----------4--------------------3--------------------2--------------1--------------0
+  |  DONT CARE | OCCUPANCY | PENDING COALESCING | PENDING COALESCING | OCCUPANCY OF | OCCUPANCY OF |
+  |            |           | OPS ON LEFT  CHILD | OPS ON RIGHT CHILD | LEFT CHILD   | RIGHT CHILD  |
+  |------------|-----------|--------------------|--------------------|--------------|--------------|
+
+*/
+
+#define FREE_BLOCK                  ( 0UL )
+#define MASK_OCCUPY_RIGHT           ( 0x1UL  )
+#define MASK_OCCUPY_LEFT            ( 0x2UL  )
+#define MASK_LEFT_COALESCE          ( 0x8UL  )
+#define MASK_RIGHT_COALESCE         ( 0x4UL  )
+#define OCCUPY                      ( 0x10UL )
+
+#define MASK_CLEAN_LEFT_COALESCE    (~MASK_LEFT_COALESCE)
+#define MASK_CLEAN_RIGHT_COALESCE   (~MASK_RIGHT_COALESCE)
+#define OCCUPY_BLOCK                ((OCCUPY) | (MASK_OCCUPY_LEFT) | (MASK_OCCUPY_RIGHT))
+#define MASK_CLEAN_OCCUPIED_LEFT    (~MASK_OCCUPY_LEFT )
+#define MASK_CLEAN_OCCUPIED_RIGHT   (~MASK_OCCUPY_RIGHT)
+
+#define ROOT            (tree[1])
+#define left_index(n)   (((n)->pos)*2)
+#define right_index(n)  (left_index(n)+1)
+#define parent_index(n) (((n)->pos)/2)
+#define left(n)         (tree[left_index(n)  ])
+#define right(n)        (tree[right_index(n) ])
+#define parent(n)       (tree[parent_index(n)])
+#define level(n)        ((unsigned) ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) )))
+
+
+
+/***************************************************
+*               LOCAL VARIABLES
+***************************************************/
 
 node* tree; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 unsigned long overall_memory_size;
@@ -41,129 +57,36 @@ unsigned failed_at_node;
 unsigned overall_height;
 node* upper_bound;
 
-int number_of_processes;
+extern int number_of_processes;
+extern taken_list* takenn;
+
+static void init_tree(unsigned long number_of_nodes);
+static bool check_parent(node* n);
+static bool alloc(node* n);
+static void smarca_(node* n);
+static void smarca(node* n);
+static void free_node_(node* n);
 
 
-typedef struct _taken_list_elem{
-    struct _taken_list_elem* next;
-    node* elem;
-}taken_list_elem;
-
-typedef struct _taken_list{
-    struct _taken_list_elem* head;
-    unsigned number;
-}taken_list;
-
-
-taken_list* takenn;
-taken_list* takenn_serbatoio;
-int* failures;
-int write_failures_on;
-
-
-unsigned long upper_power_of_two(unsigned long v);
-void init_node(node* n);
-void init_tree(unsigned long number_of_nodes);
-void init(unsigned long memory);
-void free_nodes(node* n); //questo fa la free fisicamente
-void end();
-void print(node* n);
-bool alloc(node* n);
-
-bool check_parent(node* n);
-void smarca_(node* n);
-
-void smarca(node* n){
-    upper_bound = &ROOT;
-    smarca_(n);
-}
-
-void print_in_profondita(node*);
-void print_in_ampiezza();
-void free_node_(node* n);
-
-/*Queste funzioni sono esposte all'utente*/
-node* request_memory(unsigned pages);
-
-void free_node(node* n){
-    upper_bound = &ROOT;
-    free_node_(n);
-}
-
-unsigned log2_(unsigned long value);
-
-//MARK: WRITE SU FILE
+/*******************************************************************
+                INIT NB-BUDDY SYSTEM
+*******************************************************************/
 
 /*
- SCRIVE SU FILE I NODI PRESI DA UN THREAD - FUNZIONE PRETTAMENTE DI DEBUG
+ This function inits a static tree represented as an implicit binary heap. 
+ The first node at index 0 is a dummy node.
+
+ @Author: Andrea Scarselli
+ @param number_of_nodes: the number of valid nodes in the tree.
  */
-void write_taken(){
-    char filename[128];
-    sprintf(filename, "./debug/taken_%d.txt", getpid());
-    FILE *f = fopen(filename, "w");
-    unsigned i;
-    
-    if (f == NULL){
-        printf("Error opening file!\n");
-        exit(1);
-    }
-    
-    taken_list_elem* runner = takenn->head;
-    
-    /* print some text */
-    for(i=0;i<takenn->number;i++){
-        fprintf(f, "%u\n", runner->elem->pos);
-        runner=runner->next;
-    }
-    
-    
-    
-    fclose(f);
-    
-}
-
-
-
-/*
- SCRIVE SU FILE LA SITUAZIONE DELL'ALBERO (IN AMPIEZZA) VISTA DA UN CERTO THREAD
- */
-void write_on_a_file_in_ampiezza(){
-    char filename[128];
-    sprintf(filename, "./debug/tree.txt");
-    FILE *f = fopen(filename, "w");
-    int i;
-    
-    if (f == NULL){
-        printf("Error opening file!\n");
-        exit(1);
-    }
-    
-    for(i=1;i<=number_of_nodes;i++){
-        node* n = &tree[i];
-        fprintf(f, "(%p) %u val=%lu has %lu B. mem_start in %lu  level is %u\n", (void*)n, tree[i].pos,  tree[i].val , tree[i].mem_size, tree[i].mem_start,  level(n));
-    }
-    
-    fclose(f);
-}
-
-//MARK: INIT
-
-
-/*
- Questa funzione inizializza l'albero. Non il nodo dummy (tree[0])
- @param number_of_nodes: the number of nodes.
- */
-void init_tree(unsigned long number_of_nodes){
+static void init_tree(unsigned long number_of_nodes){
     int i=0;
-
 
     ROOT.mem_start = 0;
     ROOT.mem_size = overall_memory_size;
     ROOT.pos = 1;
     ROOT.val = 0;
 
-    
-    //init_node(ROOT);
     for(i=2;i<=number_of_nodes;i++){
         
         tree[i].pos = i;
@@ -181,7 +104,10 @@ void init_tree(unsigned long number_of_nodes){
 }
 
 /*
- @param pages: pagine richieste. Questo sarà il valore della radice
+ This function build the Non-Blocking Buddy System.
+
+ @Author: Andrea Scarselli
+ @param levels: Number of levels in the tree. 
  */
 void init(unsigned long levels){
 	number_of_nodes = (1<<levels) -1;
@@ -208,59 +134,16 @@ void init(unsigned long levels){
     
 }
 
-//MARK: FINE
-
 /*
- Funzione ricorsiva. Chiama se stessa su sui figli e tornando indietro effettua la free (di sistema) sul nodo n
- @param n: il nodo da deallocare (a livello sistema)
- */
-/*void free_nodes(node* n){
-    if(left_index(n)<= number_of_nodes){ //right != NULL <=> left != NULL
-        free_nodes(left(n));
-        free_nodes(right(n));
-    }
-    free(n);
-}*/
+ This function destroy the Non-Blocking Buddy System.
 
-/*
- Funzione finale che nell'ordine:
- 1) libera la memoria assegnabile
- 2) invoca la free_nodes sulla radice
- 3) libera l'array che memorizzava l'albero
+ @Author: Andrea Scarselli
  */
-void end(){
+void destroy(){
     free(overall_memory);
-    //free_nodes(ROOT);
     free(tree);
 }
 
-//MARK: PRINT
-
-
-/*traversal tramite left and right*/
-
-void print_in_profondita(node* n){
-    //printf("%u has\n", n->pos);
-    printf("%u has %lu B. mem_start in %lu left is %u right is %u level=%u\n", n->pos, n->mem_size, n->mem_start, left_index(n), right_index(n), level(n));
-    if(left_index(n)<= number_of_nodes){
-        print_in_profondita(&left(n));
-        print_in_profondita(&
-                            right(n));
-    }
-}
-
-/*Print in ampiezza*/
-
-void print_in_ampiezza(){
-    
-    int i;
-    for(i=1;i<=number_of_nodes;i++){
-        //printf("%p\n", tree[i]);
-        printf("%u has %lu B. mem_start in %lu val is %lu level=%u\n", tree[i].pos, tree[i].mem_size,tree[i].mem_start, tree[i].
-               val, level(&tree[i]));
-        //printf("%u has %lu B\n", tree[i]->pos, tree[i]->mem_size);
-    }
-}
 
 
 //MARK: ALLOCAZIONE
@@ -273,7 +156,7 @@ void print_in_ampiezza(){
  @return true se è tutto corretto fino alla radice, false altrimenti
  
  */
-bool check_parent(node* n){
+static bool check_parent(node* n){
     
     node* actual = &parent(n);
     
@@ -323,7 +206,7 @@ bool check_parent(node* n){
  @return true se l'allocazione riesce, false altrimenti
  
  */
-bool alloc(node* n){
+static bool alloc(node* n){
     unsigned long actual;
     //actual è il valore dei bit che sono nel nodo prima che ci lavoro
     actual = n->val;
@@ -411,45 +294,6 @@ node* request_memory(unsigned byte){
     return NULL;
 }
 
-//MARK: FREE
-
-/*
- Questa funzione libera il nodo n e si preoccupa di settare il bit di coalesce per tutti gli antenati del nodo (fino all'upper bound).
- La funzione chiamata smarca() si preoccuperà di impostare i bit di utilizzo a 0 per gli antenati, ove appropriato.
- @param n: nodo da liberare
- @param upper_bound: l'ultimo nodo da liberare
- */
-void free_node_(node* n){
-    if(n->val!=OCCUPY_BLOCK){
-        
-        printf("err: il blocco non è occupato\n");
-        return;
-    }
-    
-    node* actual = &parent(n);
-    node* runner = n;
-    unsigned long actual_value;
-    unsigned long new_value;
-    
-    while(runner!=upper_bound){
-        do{
-            actual_value = actual->val;
-            if(&left(actual)==runner)
-                new_value = actual_value | MASK_LEFT_COALESCE;
-            else
-                new_value = actual_value | MASK_RIGHT_COALESCE;
-        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value));
-        runner = actual;
-        actual = &
-        
-        parent(actual);
-    }
-    
-    n->val = 0; //controlla se ci vuole la CAS
-    //print_in_ampiezza();
-    if(n!=upper_bound)
-        smarca_(n);
-}
 
 
 /*
@@ -457,7 +301,7 @@ void free_node_(node* n){
  @param n: il figlio del primo nodo da smarcare! (BISOGNA SMARCARE DAL PADRE)
  @param upper_bound; l'ultimo nodo da smarcare
  */
-void smarca_(node* n){
+static void smarca_(node* n){
     
     node* actual = &
     parent(n);
@@ -490,3 +334,143 @@ void smarca_(node* n){
     
 }
 
+
+
+static void smarca(node* n){
+    upper_bound = &ROOT;
+    smarca_(n);
+}
+
+
+//MARK: FREE
+
+/*
+ Questa funzione libera il nodo n e si preoccupa di settare il bit di coalesce per tutti gli antenati del nodo (fino all'upper bound).
+ La funzione chiamata smarca() si preoccuperà di impostare i bit di utilizzo a 0 per gli antenati, ove appropriato.
+ @param n: nodo da liberare
+ @param upper_bound: l'ultimo nodo da liberare
+ */
+static void free_node_(node* n){
+    if(n->val!=OCCUPY_BLOCK){
+        
+        printf("err: il blocco non è occupato\n");
+        return;
+    }
+    
+    node* actual = &parent(n);
+    node* runner = n;
+    unsigned long actual_value;
+    unsigned long new_value;
+    
+    while(runner!=upper_bound){
+        do{
+            actual_value = actual->val;
+            if(&left(actual)==runner)
+                new_value = actual_value | MASK_LEFT_COALESCE;
+            else
+                new_value = actual_value | MASK_RIGHT_COALESCE;
+        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value));
+        runner = actual;
+        actual = &
+        
+        parent(actual);
+    }
+    
+    n->val = 0; //controlla se ci vuole la CAS
+    //print_in_ampiezza();
+    if(n!=upper_bound)
+        smarca_(n);
+}
+
+
+void free_node(node* n){
+    upper_bound = &ROOT;
+    free_node_(n);
+}
+
+
+
+
+
+// //MARK: WRITE SU FILE
+
+// /*
+//  SCRIVE SU FILE I NODI PRESI DA UN THREAD - FUNZIONE PRETTAMENTE DI DEBUG
+//  */
+// void write_taken(){
+//     char filename[128];
+//     sprintf(filename, "./debug/taken_%d.txt", getpid());
+//     FILE *f = fopen(filename, "w");
+//     unsigned i;
+    
+//     if (f == NULL){
+//         printf("Error opening file!\n");
+//         exit(1);
+//     }
+    
+//     taken_list_elem* runner = takenn->head;
+    
+//     /* print some text */
+//     for(i=0;i<takenn->number;i++){
+//         fprintf(f, "%u\n", runner->elem->pos);
+//         runner=runner->next;
+//     }
+    
+    
+    
+//     fclose(f);
+    
+// }
+
+
+
+// /*
+//  SCRIVE SU FILE LA SITUAZIONE DELL'ALBERO (IN AMPIEZZA) VISTA DA UN CERTO THREAD
+//  */
+// void write_on_a_file_in_ampiezza(){
+//     char filename[128];
+//     sprintf(filename, "./debug/tree.txt");
+//     FILE *f = fopen(filename, "w");
+//     int i;
+    
+//     if (f == NULL){
+//         printf("Error opening file!\n");
+//         exit(1);
+//     }
+    
+//     for(i=1;i<=number_of_nodes;i++){
+//         node* n = &tree[i];
+//         fprintf(f, "(%p) %u val=%lu has %lu B. mem_start in %lu  level is %u\n", (void*)n, tree[i].pos,  tree[i].val , tree[i].mem_size, tree[i].mem_start,  level(n));
+//     }
+    
+//     fclose(f);
+// }
+
+
+// //MARK: PRINT
+
+
+// /*traversal tramite left and right*/
+
+// void print_in_profondita(node* n){
+//     //printf("%u has\n", n->pos);
+//     printf("%u has %lu B. mem_start in %lu left is %u right is %u level=%u\n", n->pos, n->mem_size, n->mem_start, left_index(n), right_index(n), level(n));
+//     if(left_index(n)<= number_of_nodes){
+//         print_in_profondita(&left(n));
+//         print_in_profondita(&
+//                             right(n));
+//     }
+// }
+
+// /*Print in ampiezza*/
+
+// void print_in_ampiezza(){
+    
+//     int i;
+//     for(i=1;i<=number_of_nodes;i++){
+//         //printf("%p\n", tree[i]);
+//         printf("%u has %lu B. mem_start in %lu val is %lu level=%u\n", tree[i].pos, tree[i].mem_size,tree[i].mem_start, tree[i].
+//                val, level(&tree[i]));
+//         //printf("%u has %lu B\n", tree[i]->pos, tree[i]->mem_size);
+//     }
+// }

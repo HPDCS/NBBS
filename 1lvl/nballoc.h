@@ -1,4 +1,10 @@
-//PARAMETRIZZAZIONE
+#ifndef __NB_ALLOC__
+#define __NB_ALLOC__
+
+/****************************************************
+				ALLOCATOR PARAMETES
+****************************************************/
+
 #ifndef MIN_ALLOCABLE_BYTES
 #define MIN_ALLOCABLE_BYTES 8 //(2KB) numero minimo di byte allocabili
 #endif
@@ -17,9 +23,25 @@ typedef struct _node{
     unsigned pos; //posizione all'interno dell'array "tree"
 } node;
 
+
+typedef struct _taken_list_elem{
+    struct _taken_list_elem* next;
+    node* elem;
+}taken_list_elem;
+
+typedef struct _taken_list{
+    struct _taken_list_elem* head;
+    unsigned number;
+}taken_list;
+
+
 extern unsigned mypid;
 
 void init(unsigned long memory);
-void free_nodes(node* n); //questo fa la free fisicamente
 void free_node(node* n);
 node* request_memory(unsigned pages);
+void destroy();
+
+
+
+#endif

@@ -13,18 +13,6 @@ int number_of_processes;
 unsigned master;
 unsigned mypid;
 
-
-typedef struct _taken_list_elem{
-    struct _taken_list_elem* next;
-    node* elem;
-}taken_list_elem;
-
-typedef struct _taken_list{
-    struct _taken_list_elem* head;
-    unsigned number;
-}taken_list;
-
-
 taken_list* takenn;
 taken_list* takenn_serbatoio;
 int* failures;

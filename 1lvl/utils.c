@@ -1,10 +1,4 @@
-#include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <sys/mman.h>
-#include <errno.h>
-#include <sys/wait.h>
 
 unsigned rand_lim(unsigned limit) {
     /* return a random number between 0 and limit inclusive.
