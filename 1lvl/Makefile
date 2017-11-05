@@ -1,7 +1,18 @@
-.PHONY: clean
-clean:
-	touch ./debug/safe.txt; rm ./debug/*.txt ; make compile
+CC=gcc
+FLAGS=-g -Wall -pthread -lm
+#INCLUDE= -I include/ -I mm/ -I core/ -Istatistics/
+EXECUTABLE=test
 
-compile: codice_prima_di_step1.c
-	gcc -Wall  codice_prima_di_step1.c -O2  -o codice;
+all: test
+
+test: main.o nballoc.o
+	$(CC) $(FLAGS) nballoc.o main.o -o $(EXECUTABLE)
 	
+main.o : main.c
+	$(CC) $(FLAGS) main.c -o main.o -c
+
+register.o : nballoc.c nballoc.h timer.h	
+	$(CC) $(FLAGS) nballoc.c -o nballoc.o -c
+	
+clean:
+	rm *.o test

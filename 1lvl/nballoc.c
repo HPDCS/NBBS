@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include "nballoc.h"
 
 //bool __sync_bool_compare_and_swap (type *ptr, type oldval type newval)
 
@@ -39,15 +40,6 @@
 
 #define PAGE_SIZE (4096)
 
-typedef struct _node{
-    unsigned long mem_start; //spiazzamento all'interno dell'overall_memory
-    unsigned long mem_size;
-    unsigned long  val; //per i bit etc;
-    unsigned pos; //posizione all'interno dell'array "tree"
-    
-} node;
-
-unsigned master;
 
 node* tree; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 unsigned long overall_memory_size;
@@ -56,7 +48,6 @@ void* overall_memory;
 node* trying;
 unsigned failed_at_node;
 unsigned overall_height;
-unsigned mypid;
 node* upper_bound;
 
 int number_of_processes;
@@ -557,233 +548,4 @@ void smarca_(node* n){
         smarca_(actual);
     
 }
-
-
-
-//MARK: ESECUZIONE
-
-#ifdef SERIAL
-
-void try(){
-    unsigned long scelta;
-    node* result = NULL;
-    
-    while(1){
-        puts("scrivi 1 per alloc, 2 per free");
-        scanf("%lu", &scelta);
-        switch(scelta){
-            case 1:
-                printf("inserisci le pagine che vuoi allocare (MAX %lu)\n", overall_memory_pages);
-                scanf("%lu", &scelta);
-                result = request_memory(scelta);
-                break;
-            case 2:
-                printf("inserisci l'indice del blocco che vuoi liberare\n"); //quesot non dovrà essere cosi ma stiamo debuggando.. in realtà la free deve essere chiamata senza interazione con l'utente
-                scanf("%lu", &scelta);
-                free_node(tree[(int) scelta]);
-                break;
-            default:
-                continue;
-                
-        }
-        if(result==NULL)
-            puts("allocazione fallita");
-        puts("Dopo l'esecuzione, l'albero, in ampiezza è:");
-        print_in_ampiezza();
-    }
-}
-
-int main(int argc, char**argv){
-    
-    puts("main single thread");
-    
-    if(argc!=2){
-        printf("usage: ./a.out <requested memory (in pagine)>\n");
-        exit(0);
-    }
-    number_of_processes = 1;
-    unsigned long requested = atol(argv[1]);
-    init(requested);
-    
-    try();
-    
-    end();
-    
-    return 0;
-}
-
-#else
-
-/*
- 
- Con questa funzione faccio un po' di free e di malloc a caso.
- 
- */
-void parallel_try(){
-    int i=0;
-    int tentativi = 10000000 /number_of_processes ;
-    int allocazioni;
-    int free;
-    free=allocazioni=0;
-    for(i=0;i<tentativi;i++){
-        
-        //stampo ogni tanto per controllare che il sistema non si è bloccato
-        //if(i%100000==0)
-        //    printf("(%u) %d\n", mypid, i);
-        
-        unsigned long scelta = rand();
-        
-        //FAI L'ALLOCAZIONE
-        if(scelta>=((RAND_MAX/10)*5)){ // 50% di probabilità fai la malloc
-            
-            //QUA CON SCELTA VIENE DECISO IL NUMERO DELLE PAGINE DA ALLOCARE
-            scelta = rand_lim(log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
-            scelta = (MIN_ALLOCABLE_BYTES) << (scelta);
-            if(scelta==0)
-                scelta=1;
-            
-            node* obt;
-            if(takenn_serbatoio->number==0){
-                printf("Allocazioni %d free %d allocazioni-free=%d\n", allocazioni, free, allocazioni-free);
-                exit(0);
-            }
-            
-            obt = request_memory(scelta);
-            
-            if (obt==NULL){
-                //printf("not enough memory\n");
-                failures[write_failures_on]++;
-                continue;
-            }
-            
-            allocazioni++;
-            //printf("giro %d\n",i);
-            taken_list_elem* t = takenn_serbatoio->head;
-            takenn_serbatoio->head = takenn_serbatoio->head->next;
-            takenn_serbatoio->number--;
-            t->elem = obt;
-            t->next = NULL;
-            if(takenn->head!=NULL)
-                t->next = takenn->head;
-            takenn->head = t;
-            takenn->number++;
-        }
-        
-        else{//FAI UNA FREE A CASO
-            
-            if(takenn->number==0){
-                continue;
-            }
-            free++;
-
-            //scelgo il nodo da liberare (nella mia taken list
-            scelta = rand_lim((takenn->number)-1);
-            
-            if(scelta==0){
-                free_node(takenn->head->elem);
-                taken_list_elem* die = takenn->head;
-                takenn->head = takenn->head->next;
-                takenn->number--;
-                die->next = takenn_serbatoio->head;
-                takenn_serbatoio->head = die;
-                takenn_serbatoio->number++;
-            }
-            else{
-                taken_list_elem* runner = takenn->head;
-                taken_list_elem* chosen;
-                int j=0;
-                
-                for(j=0;j<scelta-1;j++)
-                    runner = runner->next;
-                
-                chosen = runner->next;
-                free_node(chosen->elem);
-                
-                if(runner->next!=NULL)
-                    runner->next = runner->next->next;
-                else
-                    runner->next=NULL;
-                
-                takenn->number--;
-                chosen->next = takenn_serbatoio->head;
-                takenn_serbatoio->head = chosen;
-                takenn_serbatoio->number++;
-            }
-            
-        }
-        
-    }
-    
-    
-}
-
-int main(int argc, char**argv){
-    
-    if(argc!=3){
-        printf("usage: ./a.out <number of threads> <number of levels>\n");
-        exit(0);
-    }
-    
-    //Per scrivere solo una volta il risultato finale su file
-    master=getpid();
-    int i=0;
-    
-    number_of_processes=atoi(argv[1]);
-    unsigned long requested = atol(argv[2]);
-    
-    
-    init(requested);
-    failures = mmap(NULL, sizeof(int) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    //time ( &time2 );
-    //printf("time1= %lu\n", time1);
-    //printf("time2= %lu\n", time2);
-    //printf("time2-time1=%lu\n", time2 -time1);
-    for(i=0; i<number_of_processes; i++){
-        failures[i] = 0;
-        if(fork()==0){
-            //child code, do work and exit.
-            mypid=getpid();
-            
-            write_failures_on = mypid % number_of_processes;
-            //per la gestione dei nodi presi dal singolo processo.
-            takenn = malloc(sizeof(taken_list));
-            takenn->head = NULL;
-            takenn->number = 0;
-            
-            takenn_serbatoio = malloc(sizeof(taken_list));
-            takenn_serbatoio->number = SERBATOIO_DIM;
-            takenn_serbatoio->head = malloc(sizeof(taken_list_elem));
-            taken_list_elem* runner = takenn_serbatoio->head;
-            int j;
-            for(j=0;j<SERBATOIO_DIM;j++){
-                runner->next = malloc(sizeof(taken_list_elem));
-                runner = runner->next;
-            }
-            parallel_try();
-            free(takenn);
-            exit(0);
-        }
-        //else parent spawn processes
-    }
-    
-    //only parent reach this. Wait all processes (-1 parameters) and terminate
-    while (waitpid(-1, NULL, 0)) {
-        if (errno == ECHILD) {
-            break;
-        }
-    }
-    
-    puts("failures:");
-    int total = 0;;
-    for(i=0;i<number_of_processes;i++){
-        printf("%d: %d\n", i, failures[i]);
-        total += failures[i];
-    }
-    printf("total failure is %d\n", total);
-    //write_on_a_file_in_ampiezza();
-    
-    return 0;
-}
-
-#endif
 
