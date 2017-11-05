@@ -9,8 +9,6 @@
 #include "utils.h"
 
 
-//bool __sync_bool_compare_and_swap (type *ptr, type oldval type newval)
-
 #define OCCUPY ((unsigned long) (0x10))
 #define MASK_CLEAN_LEFT_COALESCE ((unsigned long)(~(MASK_LEFT_COALESCE)))
 #define MASK_CLEAN_RIGHT_COALESCE ((unsigned long)(~(MASK_RIGHT_COALESCE)))
@@ -19,12 +17,6 @@
 #define MASK_LEFT_COALESCE ((unsigned long) (0x8))
 #define MASK_RIGHT_COALESCE ((unsigned long) (0x4))
 //PARAMETRIZZAZIONE
-#ifndef MIN_ALLOCABLE_BYTES
-#define MIN_ALLOCABLE_BYTES 8 //(2KB) numero minimo di byte allocabili
-#endif
-#ifndef MAX_ALLOCABLE_BYTE
-#define MAX_ALLOCABLE_BYTE  16384 //(16KB)
-#endif
 #define FREE_BLOCK ((unsigned long) 0)
 #define OCCUPY_BLOCK ((OCCUPY) | (MASK_OCCUPY_LEFT) | (MASK_OCCUPY_RIGHT))
 #define MASK_CLEAN_OCCUPIED_LEFT (~(MASK_OCCUPY_LEFT))
@@ -38,9 +30,6 @@
 #define parent(n) (tree[(unsigned)(((n)->pos)/(2))])
 #define parent_index(n) ((unsigned)(((n)->pos)/(2)))
 #define level(n) ((unsigned) ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) )))
-#define SERBATOIO_DIM (16*8192)
-
-#define PAGE_SIZE (4096)
 
 
 node* tree; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
@@ -95,6 +84,7 @@ void free_node_(node* n);
 
 /*Queste funzioni sono esposte all'utente*/
 node* request_memory(unsigned pages);
+
 void free_node(node* n){
     upper_bound = &ROOT;
     free_node_(n);
@@ -194,8 +184,7 @@ void init_tree(unsigned long number_of_nodes){
  @param pages: pagine richieste. Questo sarà il valore della radice
  */
 void init(unsigned long levels){
-    
-    number_of_nodes = (1<<levels) -1;
+	number_of_nodes = (1<<levels) -1;
     
     overall_height = levels;
     
@@ -203,18 +192,17 @@ void init(unsigned long levels){
     
     overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
     
-    overall_memory = mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	overall_memory = mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     
     if(overall_memory==MAP_FAILED)
         abort();
+        
+	tree = mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     
-    
-    tree = mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    
-    if(tree==MAP_FAILED)
+	if(tree==MAP_FAILED)
         abort();
     
-    init_tree(number_of_nodes);
+	init_tree(number_of_nodes);
     
     puts("init complete");
     
