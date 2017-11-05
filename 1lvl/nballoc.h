@@ -17,10 +17,10 @@
 #define PAGE_SIZE (4096)
 
 typedef struct _node{
-    unsigned long mem_start; //spiazzamento all'interno dell'overall_memory
-    unsigned long mem_size;
-    unsigned long  val; //per i bit etc;
-    unsigned pos; //posizione all'interno dell'array "tree"
+    unsigned int mem_start; //spiazzamento all'interno dell'overall_memory
+    unsigned int mem_size;
+    unsigned int val; //per i bit etc;
+    unsigned int pos; //posizione all'interno dell'array "tree"
 } node;
 
 

@@ -20,11 +20,11 @@ Bitmap for each node:
 
 */
 
-#define FREE_BLOCK                  ( 0UL )
+#define FREE_BLOCK                  ( 0x0UL  )
 #define MASK_OCCUPY_RIGHT           ( 0x1UL  )
 #define MASK_OCCUPY_LEFT            ( 0x2UL  )
-#define MASK_LEFT_COALESCE          ( 0x8UL  )
 #define MASK_RIGHT_COALESCE         ( 0x4UL  )
+#define MASK_LEFT_COALESCE          ( 0x8UL  )
 #define OCCUPY                      ( 0x10UL )
 
 #define MASK_CLEAN_LEFT_COALESCE    (~MASK_LEFT_COALESCE)
@@ -40,8 +40,7 @@ Bitmap for each node:
 #define left(n)         (tree[left_index(n)  ])
 #define right(n)        (tree[right_index(n) ])
 #define parent(n)       (tree[parent_index(n)])
-#define level(n)        ((unsigned) ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) )))
-
+#define level(n)        ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) ))
 
 
 /***************************************************
@@ -50,11 +49,11 @@ Bitmap for each node:
 
 node* tree; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 unsigned long overall_memory_size;
-unsigned number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
+unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 void* overall_memory;
 node* trying;
-unsigned failed_at_node;
-unsigned overall_height;
+unsigned int failed_at_node;
+unsigned int overall_height;
 node* upper_bound;
 
 extern int number_of_processes;
@@ -71,6 +70,41 @@ static void free_node_(node* n);
 /*******************************************************************
                 INIT NB-BUDDY SYSTEM
 *******************************************************************/
+
+
+/*
+ This function build the Non-Blocking Buddy System.
+
+ @Author: Andrea Scarselli
+ @param levels: Number of levels in the tree. 
+ */
+void init(unsigned long levels){
+    number_of_nodes = (1<<levels) -1;
+    
+    overall_height = levels;
+    
+    unsigned number_of_leaves = 1<< (levels-1);
+    
+    overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
+    
+    overall_memory = mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    
+    if(overall_memory==MAP_FAILED)
+        abort();
+        
+    tree = mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    
+    if(tree==MAP_FAILED)
+        abort();
+    
+    init_tree(number_of_nodes);
+    
+    puts("init complete");
+    
+}
+
+
+
 
 /*
  This function inits a static tree represented as an implicit binary heap. 
@@ -104,37 +138,6 @@ static void init_tree(unsigned long number_of_nodes){
 }
 
 /*
- This function build the Non-Blocking Buddy System.
-
- @Author: Andrea Scarselli
- @param levels: Number of levels in the tree. 
- */
-void init(unsigned long levels){
-	number_of_nodes = (1<<levels) -1;
-    
-    overall_height = levels;
-    
-    unsigned number_of_leaves = (1<< (levels-1));
-    
-    overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
-    
-	overall_memory = mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    
-    if(overall_memory==MAP_FAILED)
-        abort();
-        
-	tree = mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    
-	if(tree==MAP_FAILED)
-        abort();
-    
-	init_tree(number_of_nodes);
-    
-    puts("init complete");
-    
-}
-
-/*
  This function destroy the Non-Blocking Buddy System.
 
  @Author: Andrea Scarselli
@@ -147,6 +150,82 @@ void destroy(){
 
 
 //MARK: ALLOCAZIONE
+
+
+
+/*
+
+ API for memory allocation.
+ 
+ @Author: Andrea Scarselli
+ @param pages: memoria richiesta dall'utente
+ @return l'indirizzo di memoria allocato per la richiesta; NULL in caso di fallimento
+ 
+ */
+node* request_memory(unsigned byte){
+    unsigned int starting_node;
+    unsigned int last_node;  
+    unsigned int actual;  
+    unsigned int started_at;
+    bool restarted = false;
+
+    if( byte > MAX_ALLOCABLE_BYTE )
+        return NULL;
+    
+    byte = upper_power_of_two(byte);
+
+    if( byte < MIN_ALLOCABLE_BYTES )
+        byte = MIN_ALLOCABLE_BYTES;
+
+    starting_node  = overall_memory_size / byte;            //first node for this level
+    last_node      = left_index(&tree[starting_node])-1;    //last node for this level
+    actual = mypid % number_of_processes;                   //actual è il posto in cui iniziare a cercare
+    
+    
+    if(last_node-starting_node!=0)
+        actual = actual % (last_node - starting_node);
+    else
+        actual=0;
+    actual = starting_node + actual;
+    
+    
+    started_at = actual;
+    
+    //quando faccio un giro intero ritorno NULL
+    do{
+        if(alloc(&tree[actual])==true){
+            return &tree[actual];
+        }
+        
+        // ROMOLO: failed_at_node è una variabile che potrebbe essere locale a questa funzione
+        if(failed_at_node==1){ // il buddy è pieno
+            return NULL;
+        }
+        
+        // ROMOLO: da studiare 
+        //Questo serve per evitare tutto il sottoalbero in cui ho fallito
+        actual=(failed_at_node+1)* (1<<( level(&tree[actual]) - level(& tree[failed_at_node])));
+        
+        // ROMOLO: può verificarsi questa condizione??
+        if(actual>last_node){ //se ho sforato riparto dal primo utile, se il primo era quello da cui avevo iniziato esco al controllo del while
+            actual=starting_node;
+            restarted = true;
+        }
+    
+    // ROMOLO: fa più giri del dovuto??
+    }while(restarted==false || actual < started_at);
+    
+    return NULL;
+}
+
+
+
+
+
+
+
+
+
 /*
  Questa funzione si preoccupa di marcare il bit relativo al sottoalbero del blocco che ho allocato in tutti i suoi antenati.
  Questa funziona ritorna true se e solo se riesce a marcare fino alla radice. La funzione fallisce se e solo se si imbatte in un nodo occupato
@@ -207,7 +286,7 @@ static bool check_parent(node* n){
  
  */
 static bool alloc(node* n){
-    unsigned long actual;
+    unsigned int actual;
     //actual è il valore dei bit che sono nel nodo prima che ci lavoro
     actual = n->val;
     trying = n;
@@ -232,66 +311,6 @@ static bool alloc(node* n){
     else{
         return false;
     }
-}
-
-
-
-/*
- Funzione di malloc richiesta dall'utente.
- @param pages: memoria richiesta dall'utente
- @return l'indirizzo di memoria allocato per la richiesta; NULL in caso di fallimento
- 
- 
- */
-node* request_memory(unsigned byte){
-    if(byte>MAX_ALLOCABLE_BYTE)
-        return NULL;
-    
-    byte = upper_power_of_two(byte);
-    if(byte<MIN_ALLOCABLE_BYTES)
-        byte = MIN_ALLOCABLE_BYTES;
-    unsigned starting_node = overall_memory_size / byte; //first node for this level
-    unsigned last_node = left_index(&tree[starting_node])-1; //last node for this level
-    
-    //actual è il posto in cui iniziare a cercare
-    
-    unsigned actual = mypid % number_of_processes;
-    
-    if(last_node-starting_node!=0)
-        actual = actual % (last_node - starting_node);
-    else
-        actual=0;
-    
-    actual = starting_node + actual;
-    
-    
-    unsigned started_at = actual;
-    
-    bool restarted = false;
-    
-    //quando faccio un giro intero ritorno NULL
-    do{
-        if(alloc(&tree[actual])==true){
-            return &tree[actual];
-        }
-        
-        
-        if(failed_at_node==1){ // il buddy è pieno
-            return NULL;
-        }
-        
-        //Questo serve per evitare tutto il sottoalbero in cui ho fallito
-        actual=(failed_at_node+1)* (1<<( level(&tree[actual]) - level(& tree[failed_at_node])));
-        
-        
-        if(actual>last_node){ //se ho sforato riparto dal primo utile, se il primo era quello da cui avevo iniziato esco al controllo del while
-            actual=starting_node;
-            restarted = true;
-        }
-        
-    }while(restarted==false || actual < started_at);
-    
-    return NULL;
 }
 
 
@@ -371,9 +390,7 @@ static void free_node_(node* n){
                 new_value = actual_value | MASK_RIGHT_COALESCE;
         }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value));
         runner = actual;
-        actual = &
-        
-        parent(actual);
+        actual = &parent(actual);
     }
     
     n->val = 0; //controlla se ci vuole la CAS
