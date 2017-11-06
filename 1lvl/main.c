@@ -15,7 +15,7 @@ unsigned mypid;
 
 taken_list* takenn;
 taken_list* takenn_serbatoio;
-int* failures;
+unsigned long long *failures, *allocs, *frees;
 int write_failures_on;
 
 
@@ -79,7 +79,7 @@ int main(int argc, char**argv){
  
  */
 void parallel_try(){
-    int i, j, allocazioni, free, tentativi;
+    int i, j, tentativi;
     unsigned long scelta;
     unsigned int scelta_lvl;
     
@@ -88,7 +88,7 @@ void parallel_try(){
     
     scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
     tentativi = 10000000 / number_of_processes ;
-    i = j = free = allocazioni = 0;
+    i = j = 0;
     
     for(i=0;i<tentativi;i++){
 		
@@ -104,7 +104,7 @@ void parallel_try(){
                 scelta=1;
             
             if(takenn_serbatoio->number==0){
-                printf("Allocazioni %d free %d allocazioni-free=%d\n", allocazioni, free, allocazioni-free);
+                printf("Allocazioni %llu free %llu allocazioni-free=%llu\n", allocs[write_failures_on], frees[write_failures_on], allocs[write_failures_on] - frees[write_failures_on]);
                 exit(0);
             }
             
@@ -113,7 +113,7 @@ void parallel_try(){
                 failures[write_failures_on]++;
                 continue;
             }
-            allocazioni++;
+            allocs[write_failures_on]++;
             
             //estraggo un nodo dal serbatoio
             t = takenn_serbatoio->head;
@@ -130,7 +130,7 @@ void parallel_try(){
             if(takenn->number==0){
                 continue;
             }
-            free++;
+            frees[write_failures_on]++;
 
             //scelgo il nodo da liberare nella mia taken list
             scelta = rand_lim((takenn->number)-1); //ritorna un numero da 0<head> a number-1<ultimo>
@@ -173,7 +173,9 @@ int main(int argc, char**argv){
     
     
     init(requested);
-    failures = mmap(NULL, sizeof(int) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    failures = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    frees = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     
     for(i=0; i<number_of_processes; i++){
         failures[i] = 0;
@@ -181,7 +183,7 @@ int main(int argc, char**argv){
             //child code, do work and exit.
             mypid=getpid();
             
-            write_failures_on = mypid % number_of_processes;
+            write_failures_on = mypid % number_of_processes; //<---NON VA BENE
             //per la gestione dei nodi presi dal singolo processo.
             takenn = malloc(sizeof(taken_list));
             takenn->head = NULL;
@@ -213,10 +215,12 @@ int main(int argc, char**argv){
         }
     }
     
-    puts("failures:");
     int total = 0;;
     for(i=0;i<number_of_processes;i++){
-        printf("%d: %d\n", i, failures[i]);
+        printf("Process %d:\n",i);
+        printf("\t allocati: %llu\n", allocs[i]);
+        printf("\t dealloca: %llu\n", frees[i]);
+        printf("\t failures: %llu\n", failures[i]);
         total += failures[i];
     }
     printf("total failure is %d\n", total);

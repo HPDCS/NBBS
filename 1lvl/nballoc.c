@@ -172,13 +172,14 @@ node* request_memory(unsigned byte){
     starting_node  = overall_memory_size / byte;            //first node for this level
     last_node      = left_index(&tree[starting_node])-1;    //last node for this level
 
-    actual = mypid % number_of_processes;                   //actual è il posto in cui iniziare a cercare
-    if(last_node - starting_node != 0)
-        actual = actual % (last_node - starting_node);
-    else
-        actual = 0;
-    actual = starting_node + actual;
-    //actual = starting_node + (mypid % number_of_processes)*((last_node - starting_node + 1)/number_of_processes);
+//    actual = mypid % number_of_processes;                   //actual è il posto in cui iniziare a cercare
+//    if(last_node - starting_node != 0)
+//        actual = actual % (last_node - starting_node);
+//    else
+//        actual = 0;
+//    actual = starting_node + actual;
+    actual = starting_node + 
+			(mypid % number_of_processes) * ((last_node - starting_node + 1)/number_of_processes);
         
     started_at = actual;
     
@@ -186,11 +187,10 @@ node* request_memory(unsigned byte){
     do{
         if(alloc(&tree[actual]) == true){
             return &tree[actual];
-        }
-        
-        if(failed_at_node == 1){ // il buddy è pieno
-            return NULL;
-        }
+        }        
+        //if(failed_at_node == 1){ // il buddy è pieno
+        //    return NULL;
+        //}
         
         //Questo serve per evitare tutto il sottoalbero in cui ho fallito
         actual = (failed_at_node + 1) * (1 << (level(&tree[actual]) - level(& tree[failed_at_node])));
@@ -216,43 +216,41 @@ node* request_memory(unsigned byte){
  
  */
 static bool check_parent(node* n){
-    
-    node* actual = &parent(n);
-    
     unsigned long actual_value;
     unsigned long new_value;
+    node *actual = n, *son = n;//&parent(actual);
     
-    do{
-        actual_value = actual->val;
-        
-        //Se l'AND con OCCUPY fallisce vuol dire che qualcuno lo ha occupato
-        if((actual_value & OCCUPY)!=0){
-            failed_at_node = actual->pos;
-            
-            //ripristino dal nodo dove sono partito al nodo dove sono arrivato (da trying ad n)
-            upper_bound = n;
-            free_node_(trying);
-            
-            return false;
-        }
-        
-        new_value = actual_value;
-        
-        if(&left(actual) == n){ //n è sinistro
-            new_value = new_value & MASK_CLEAN_LEFT_COALESCE;
-            new_value = new_value | MASK_OCCUPY_LEFT;
-        }
-        else{
-            new_value = new_value & MASK_CLEAN_RIGHT_COALESCE;
-            new_value = new_value | MASK_OCCUPY_RIGHT;
-        }
-        //TODO: se new_val=sctual_val non serve fare la CAS
-    }while(!__sync_bool_compare_and_swap(&actual->val, actual_value, new_value));
+    while(actual != &ROOT){
+		son = actual;
+		actual = &parent(actual);
     
-    if(actual == &ROOT)
-        return true;
-    
-    return check_parent(actual);
+		do{
+			actual_value = actual->val;
+			
+			//Se l'AND con OCCUPY fallisce vuol dire che qualcuno lo ha occupato
+			if((actual_value & OCCUPY)!=0){
+				failed_at_node = actual->pos;
+				//ripristino dal nodo dove sono partito al nodo dove sono arrivato (da trying ad n)
+				upper_bound = son;
+				free_node_(trying);
+				return false;
+			}
+			
+			new_value = actual_value;
+			
+			if(&left(actual) == son){ //n è sinistro
+				new_value = (new_value & MASK_CLEAN_LEFT_COALESCE) | MASK_OCCUPY_LEFT;
+				//new_value = new_value | MASK_OCCUPY_LEFT;
+			}
+			else{
+				new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
+				//new_value = new_value | MASK_OCCUPY_RIGHT;
+			}
+			//TODO: se new_val=sctual_val non serve fare la CAS
+		}while(new_value != actual_value && //CONTROLLA!!!
+				!__sync_bool_compare_and_swap(&actual->val, actual_value, new_value));
+    }
+    return true;
 }
 
 
@@ -277,12 +275,14 @@ static bool alloc(node* n){
     }
     
     //ho allocato tutto l'albero oppure sono riuscito a risalire fino alla radice
-    if(n==&ROOT || check_parent(n)){
-        return true;
-    }
-    else{
-        return false;
-    }
+    return (n==&ROOT || check_parent(n));
+    
+//    if(n==&ROOT || check_parent(n)){
+//        return true;
+//    }
+//    else{
+//        return false;
+//    }
 }
 
 
@@ -293,39 +293,43 @@ static bool alloc(node* n){
  @param upper_bound; l'ultimo nodo da smarcare
  */
 static void smarca_(node* n){
-    
-    node* actual = &parent(n);
-    unsigned long actual_value;
-    unsigned long new_val;
+    unsigned int actual_value;
+    unsigned int new_val;
+    node *actual = n, *son = n;//&parent(n);
     
     do{
-        actual_value = actual->val;
-        new_val = actual_value;
-        //libero il rispettivo sottoramo su new val
-        if(&left(actual)==n && (actual_value & MASK_LEFT_COALESCE)==0 ){ //if n è sinistro AND b1=0...già riallocato
-            return;
-        }
-        else if(&right(actual)==n && (actual_value & MASK_RIGHT_COALESCE)==0){ //if n è destro AND b1=0...già riallocato
-            return;
-        }
-        if (&left(actual)==n)
-            new_val = new_val & MASK_CLEAN_LEFT_COALESCE & MASK_CLEAN_OCCUPIED_LEFT;
-        else
-            new_val = new_val & MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT;
-    } while (!__sync_bool_compare_and_swap(&actual->val,actual_value,new_val));
-
-
-    if(actual==upper_bound) //se sono arrivato alla radice ho finito
-        return;
-
-    if(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) //if n è sinistro AND (parent(n).actual_value.b4=1) Interrompo! Mio nonno deve vedere il sottoramo occupato perchè mio fratello tiene occupato mio padre!!
-        return;
-    else if(&
-            right(actual)==n && (actual->val & MASK_OCCUPY_LEFT)!=0) // if n è destro AND (parent(n).actual_value.b3=2)
-        return;
-    else
-        smarca_(actual);
+		actual = &parent(n);
     
+		do{
+			actual_value = actual->val;
+			new_val = actual_value;
+			//libero il rispettivo sottoramo su new val
+			if( (&left(actual)==son && (actual_value & MASK_LEFT_COALESCE)==0) ||
+				(&right(actual)==son && (actual_value & MASK_RIGHT_COALESCE)==0)
+				){ //if n è sinistro AND b1=0 || if n è destro AND b1=0...già riallocato
+				return;
+			}
+			
+			if (&left(actual)==son)
+				new_val = new_val & MASK_CLEAN_LEFT_COALESCE & MASK_CLEAN_OCCUPIED_LEFT;
+			else
+				new_val = new_val & MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT;
+				
+		} while (!__sync_bool_compare_and_swap(&actual->val,actual_value,new_val));
+
+	}while(	(actual!=upper_bound) &&
+			!(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) &&
+			!(&right(actual)==n && (actual->val & MASK_OCCUPY_LEFT)!=0) );
+	
+
+//    if(actual==upper_bound) //se sono arrivato alla radice ho finito
+//        return;
+//    if(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) //if n è sinistro AND (parent(n).actual_value.b4=1) Interrompo! Mio nonno deve vedere il sottoramo occupato perchè mio fratello tiene occupato mio padre!!
+//        return;
+//    else if(&right(actual)==n && (actual->val & MASK_OCCUPY_LEFT)!=0) // if n è destro AND (parent(n).actual_value.b3=2)
+//        return;
+//    else
+//        smarca_(actual);  
 }
 
 
@@ -357,19 +361,25 @@ static void free_node_(node* n){
     node* runner = n;
     
     while(runner!=upper_bound){
-        do{
-            actual_value = actual->val;
-            if(&left(actual)==runner)
-                new_value = actual_value | MASK_LEFT_COALESCE;
-            else
-                new_value = actual_value | MASK_RIGHT_COALESCE;
-        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value)); // TODO use fetch_&_or
+		actual_value = actual->val; //CONTROLLARE
+        if(&left(actual)==runner)
+			__sync_fetch_and_or(&actual->val, actual_value | MASK_LEFT_COALESCE);
+		else
+			__sync_fetch_and_or(&actual->val, actual_value | MASK_RIGHT_COALESCE);
+        
+//        do{
+//            actual_value = actual->val;
+//            if(&left(actual)==runner)
+//                new_value = actual_value | MASK_LEFT_COALESCE;
+//            else
+//                new_value = actual_value | MASK_RIGHT_COALESCE;
+//        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value)); // TODO use fetch_&_or
 
         runner = actual;
         actual = &parent(actual);
     }
     
-    n->val = 0; // TODO aggiungi barriera
+    n->val = 0; // TODO aggiungi barriera --- secondo me "__sync_lock_release" va bene
     //print_in_ampiezza();
     if(n!=upper_bound)
         smarca_(n);
@@ -380,9 +390,6 @@ void free_node(node* n){
     upper_bound = &ROOT;
     free_node_(n);
 }
-
-
-
 
 
 // //MARK: WRITE SU FILE
