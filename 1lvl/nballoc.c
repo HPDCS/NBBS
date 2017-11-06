@@ -83,7 +83,7 @@ void init(unsigned long levels){
     
     overall_height = levels;
     
-    unsigned number_of_leaves = 1<< (levels-1);
+    unsigned number_of_leaves = 1 << (levels - 1);
     
     overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
     
@@ -100,7 +100,6 @@ void init(unsigned long levels){
     init_tree(number_of_nodes);
     
     puts("init complete");
-    
 }
 
 
@@ -130,11 +129,9 @@ static void init_tree(unsigned long number_of_nodes){
         
         if(left_index(&parent)==i)
             tree[i].mem_start = parent.mem_start;
-        
         else
             tree[i].mem_start = parent.mem_start + tree[i].mem_size;
-        
-    }
+	}
 }
 
 /*
@@ -151,8 +148,6 @@ void destroy(){
 
 //MARK: ALLOCAZIONE
 
-
-
 /*
  API for memory allocation.
  
@@ -162,10 +157,8 @@ void destroy(){
  
  */
 node* request_memory(unsigned byte){
-    unsigned int starting_node;
-    unsigned int last_node;  
-    unsigned int actual;  
-    unsigned int started_at;
+    unsigned int starting_node, last_node, actual, started_at;
+    
     bool restarted = false;
 
     if( byte > MAX_ALLOCABLE_BYTE )
@@ -178,47 +171,39 @@ node* request_memory(unsigned byte){
 
     starting_node  = overall_memory_size / byte;            //first node for this level
     last_node      = left_index(&tree[starting_node])-1;    //last node for this level
+
     actual = mypid % number_of_processes;                   //actual è il posto in cui iniziare a cercare
-    
-    
-    if(last_node-starting_node!=0)
+    if(last_node - starting_node != 0)
         actual = actual % (last_node - starting_node);
     else
-        actual=0;
+        actual = 0;
     actual = starting_node + actual;
-    
-    
+    //actual = starting_node + (mypid % number_of_processes)*((last_node - starting_node + 1)/number_of_processes);
+        
     started_at = actual;
     
     //quando faccio un giro intero ritorno NULL
     do{
-        if(alloc(&tree[actual])==true){
+        if(alloc(&tree[actual]) == true){
             return &tree[actual];
         }
         
-        if(failed_at_node==1){ // il buddy è pieno
+        if(failed_at_node == 1){ // il buddy è pieno
             return NULL;
         }
         
         //Questo serve per evitare tutto il sottoalbero in cui ho fallito
-        actual=(failed_at_node+1)* (1<<( level(&tree[actual]) - level(& tree[failed_at_node])));
+        actual = (failed_at_node + 1) * (1 << (level(&tree[actual]) - level(& tree[failed_at_node])));
         
-        if(actual>last_node){ //se ho sforato riparto dal primo utile, se il primo era quello da cui avevo iniziato esco al controllo del while
-            actual=starting_node;
+        if(actual > last_node){ //se ho sforato riparto dal primo utile, se il primo era quello da cui avevo iniziato esco al controllo del while
+            actual = starting_node;
             restarted = true;
         }
     
-    }while(restarted==false || actual < started_at);
+    }while(restarted == false || actual < started_at);
     
     return NULL;
 }
-
-
-
-
-
-
-
 
 
 /*
@@ -257,15 +242,14 @@ static bool check_parent(node* n){
             new_value = new_value & MASK_CLEAN_LEFT_COALESCE;
             new_value = new_value | MASK_OCCUPY_LEFT;
         }
-        
         else{
             new_value = new_value & MASK_CLEAN_RIGHT_COALESCE;
             new_value = new_value | MASK_OCCUPY_RIGHT;
         }
-        
+        //TODO: se new_val=sctual_val non serve fare la CAS
     }while(!__sync_bool_compare_and_swap(&actual->val, actual_value, new_value));
     
-    if(actual==&ROOT)
+    if(actual == &ROOT)
         return true;
     
     return check_parent(actual);
@@ -286,14 +270,8 @@ static bool alloc(node* n){
     actual = n->val;
     trying = n;
     
-    //Il nodo è già occupato (parzialmente o totalmente)
-    if(actual != 0){
-        failed_at_node = n->pos;
-        return false;
-    }
-    
     //il nodo è stato parallelamente occupato. Parzialmente o totalmente
-    if(!__sync_bool_compare_and_swap(&n->val,actual,OCCUPY_BLOCK)){
+    if(actual != 0 || !__sync_bool_compare_and_swap(&n->val,0,OCCUPY_BLOCK)){
         failed_at_node = n->pos;
         return false;
     }
@@ -302,7 +280,6 @@ static bool alloc(node* n){
     if(n==&ROOT || check_parent(n)){
         return true;
     }
-    
     else{
         return false;
     }
