@@ -1,25 +1,21 @@
-.PHONY: clean
+CC=gcc
+FLAGS=-g -Wall -lm
+#INCLUDE= -I include/ -I mm/ -I core/ -Istatistics/
+EXECUTABLE=test
 
-FLAGS = -O2 -Wall
+all: test
 
+test: main.o nballoc.o utils.o
+	$(CC) $(FLAGS) nballoc.o main.o utils.o -o $(EXECUTABLE)
+	
+main.o : main.c
+	$(CC) $(FLAGS) main.c -o main.o -c
+
+register.o : nballoc.c nballoc.h timer.h	
+	$(CC) $(FLAGS) nballoc.c -o nballoc.o -c
+	
+utils.o : utils.c utils.h
+	$(CC) $(FLAGS) utils.c -o utils.o -c
+	
 clean:
-	touch ./debug/safe.txt; rm ./debug/*.txt ; make compile
-
-compile: codice_multilivello.c
-	gcc $(FLAGS)  codice_multilivello.c   -o codice;
-	
-standard_parallel_run: codice_multilivello.c
-	gcc $(FLAGS)  ./codice_multilivello.c -o codice;
-	time ./codice $(proc) $(levels) ; 
-	
-parallel_run: codice_multilivello.c
-	gcc $(FLAGS)  ./codice_multilivello.c -o codice -D MAX_ALLOCABLE_BYTE=$(MAX) -D MIN_ALLOCABLE_BYTES=$(MIN);
-	time ./codice $(proc) $(levels) ; 
-
-numa: codice_multilivello.c
-	gcc $(FLAGS)   ./codice_multilivello.c -o codice -lnuma -D NUMA -D MAX_ALLOCABLE_BYTE=$(MAX) -D MIN_ALLOCABLE_BYTES=$(MIN);
-	time ./codice $(proc) $(levels) ; 
-	
-standard_numa: codice_multilivello.c
-	gcc -$(FLAGS)   ./codice_multilivello.c -o codice -lnuma -D NUMA;
-	time ./codice $(proc) $(levels) ; 
+	rm *.o test

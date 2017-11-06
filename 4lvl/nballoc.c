@@ -6,6 +6,8 @@
 #include <sys/mman.h>
 #include <time.h>
 #include <sys/wait.h>
+#include "nballoc.h"
+#include "utils.h"
 
 #ifdef NUMA
     #include <numa.h>
@@ -87,36 +89,9 @@
 #define parent(n) (tree[(unsigned)(((n)->pos)/(2))])
 #define parent_index(n) ((unsigned)(((n)->pos)/(2)))
 #define level(n) ((unsigned) ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) )))
-#define SERBATOIO_DIM (16*8192)
 
 //PARAMETRIZZAZIONE
-#ifndef MIN_ALLOCABLE_BYTES
-#define MIN_ALLOCABLE_BYTES 8 //(2KB) numero minimo di byte allocabili
-#endif
-#ifndef MAX_ALLOCABLE_BYTE
-#define MAX_ALLOCABLE_BYTE  16384 //(16KB)
-#endif
-
-#define PAGE_SIZE (4096)
 #define LEVEL_PER_CONTAINER 4
-
-typedef struct _node node;
-
-typedef struct node_container_{
-    unsigned long nodes;
-    node* bunch_root;
-}node_container;
-
-struct _node{
-    unsigned long mem_start; //spiazzamento all'interno dell'overall_memory
-    unsigned long mem_size;
-    node_container* container;
-    unsigned pos; //posizione all'interno dell'array "tree"
-#ifdef NUMA
-    unsigned numa_node; //to remember to which tree the node belongs to
-#endif
-    char container_pos; //posizione all'interno del rispettivo container (1-15)
-};
 
 unsigned master;
 
@@ -151,25 +126,6 @@ int number_of_processes;
 int number_of_numa_nodes;
 #endif
 
-
-typedef struct _taken_list_elem{
-    struct _taken_list_elem* next;
-    node* elem;
-}taken_list_elem;
-
-typedef struct _taken_list{
-    struct _taken_list_elem* head;
-    unsigned number;
-}taken_list;
-
-
-taken_list* takenn;
-taken_list* takenn_serbatoio;
-int* failures;
-int write_failures_on;
-
-
-unsigned long upper_power_of_two(unsigned long v);
 void init_node(node* n);
 void init_tree(unsigned long number_of_nodes);
 void init(unsigned long memory);
@@ -186,58 +142,6 @@ void do_move(void * buffer, unsigned target_node, unsigned n_pages);
 
 bool check_parent(node* n);
 void smarca_(node* n);
-
-void find_the_bug_on_new_val(unsigned long new_val){
-    unsigned long val[15];
-    val[0] = (new_val & ((unsigned long) (0x1)));
-    val[1] = (new_val & ((unsigned long) (0x1<<1))) >> 1;
-    val[2] = (new_val & ((unsigned long) (0x1<<2))) >> 2;
-    val[3] = (new_val & ((unsigned long) (0x1<<3))) >> 3;
-    val[4] = (new_val & ((unsigned long) (0x1<<4))) >> 4;
-    val[5] = (new_val & ((unsigned long) (0x1<<5)))>> 5;
-    val[6] = (new_val & ((unsigned long) (0x1<<6)))>> 6;
-    val[7] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((8-1) - (7)))))) >> ((7) + (5 * ((8-1) - (7))));
-    val[8] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((9-1) - (7)))))) >> ((7) + (5 * ((9-1) - (7))));
-    val[9] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((10-1) - (7)))))) >> ((7) + (5 * ((10-1) - (7))));
-    val[10] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((11-1) - (7)))))) >> ((7) + (5 * ((11-1) - (7))));
-    val[11] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((12-1) - (7)))))) >> ((7) + (5 * ((12-1) - (7))));
-    val[12] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((13-1) - (7)))))) >> ((7) + (5 * ((13-1) - (7))));
-    val[13] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((14-1) - (7)))))) >> ((7) + (5 * ((14-1) - (7))));
-    val[14] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((15-1) - (7)))))) >> ((7) + (5 * ((15-1) - (7))));
-    int i;
-    for(i=0;i<15;i++){
-        if(val[i]!=1 && val[i]!=2 && val[i]!=10 && val[i]!=5 && val[i]!=19 && val[i]!=0 && val[i]!=15 && val[i]!=3 && val[i]!=11 && val[i]!=7) {
-            printf("\n è uscito: %lu!!!!!\n", val[i]);
-            abort();
-        }
-    }
-}
-
-void  find_the_bug(int who){
-    int i;
-    
-    for(i=1;i<=number_of_nodes;i++){
-        node* n = &tree[i];
-        unsigned long val = VAL_OF_NODE(n);
-        if(val!=1 && val!=2 && val!=10 && val!=5 && val!=19 && val!=0 && val!=15 && val!=3 && val!=11 && val!=7){
-            if(who==0)
-                printf("è stata la alloc e ha detto %lu\n", val);
-            else if(who==1)
-                printf("è stata la free e ha detto %lu\n", val);
-            else if(who==2)
-                printf("è stata proprio la free e ha detto %lu\n", val);
-            else if(who==3)
-                printf ("è stata la smarca e ha detto %lu\n", val);
-            else if(who==4)
-                printf("è stata la marca e ha detto %lu\n", val);
-            else if(who==5)
-                printf("è stata la free_node con 5 e ha detto %lu\n", val);
-            abort();
-        }
-    }
-    
-}
-
 void smarca(node* n){
 #ifdef NUMA
     tree = overall_trees[n->numa_node];
@@ -262,157 +166,7 @@ void free_node(node* n){
     free_node_(n);
 }
 
-unsigned log2_(unsigned long value);
 
-//MARK: WRITE SU FILE
-
-/*
-    SCRIVE SU FILE I NODI PRESI DA UN THREAD - FUNZIONE PRETTAMENTE DI DEBUG
- */
-void write_taken(){
-    char filename[128];
-    sprintf(filename, "./debug/taken_%d.txt", getpid()%number_of_processes);
-    FILE *f = fopen(filename, "w");
-    unsigned i;
-    
-    if (f == NULL){
-        printf("Error opening file!\n");
-        exit(1);
-    }
-    
-    taken_list_elem* runner = takenn->head;
-    
-    /* print some text */
-    for(i=0;i<takenn->number;i++){
-        fprintf(f, "%u\n", runner->elem->pos);
-        runner=runner->next;
-    }
-    
-    
-    
-    fclose(f);
-    
-}
-
-
-
-/* 
-    SCRIVE SU FILE LA SITUAZIONE DELL'ALBERO (IN AMPIEZZA) VISTA DA UN CERTO THREAD
- */
-
-void write_on_a_file_in_ampiezza(){
-    char filename[128];
-    int i;
-#ifdef NUMA
-    int actual_node;
-    for(actual_node=0;actual_node<number_of_numa_nodes;actual_node++){
-        tree = overall_trees[actual_node];
-        //puts("stampo");
-        sprintf(filename, "./debug/tree%d_%d.txt", actual_node, getpid());
-        FILE *f = fopen(filename, "w");
-        
-        if (f == NULL){
-            printf("Error opening file!\n");
-            exit(1);
-        }
-        fprintf(f, "%d \n", getpid());
-        
-        for(i=1;i<=number_of_nodes;i++){
-            node* n = &tree[i];
-            fprintf(f, "(%p) %u val=%lu has %lu B. mem_start in %lu  level is %u\n", (void*)n, tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
-        }
-        
-        fclose(f);
-    }
-    
-#else
-    sprintf(filename, "./debug/tree%d.txt", getpid() - master);
-    FILE *f = fopen(filename, "w");
-    
-    if (f == NULL){
-        printf("Error opening file!\n");
-        exit(1);
-    }
-    //fprintf(f, "%d \n", getpid());
-    
-    for(i=1;i<=number_of_nodes;i++){
-        node* n = &tree[i];
-        fprintf(f, "(%p) %u val=%lu has %lu B. mem_start in %lu  level is %u\n", (void*)n, tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
-    }
-    
-    fclose(f);
-#endif
-}
-
-void write_on_a_file_touched(){
-    char filename[128];
-    sprintf(filename, "./debug/touched.txt");
-    FILE *f = fopen(filename, "w");
-    int i;
-    
-    if (f == NULL){
-        printf("Error opening file!\n");
-        exit(1);
-    }
-    
-    for(i=1;i<=number_of_nodes;i++){
-        node* n = &tree[i];
-        if(VAL_OF_NODE(n)!=0){
-            fprintf(f,"%u\n", n->pos);
-        }
-    }
-    
-    fclose(f);
-}
-
-
-//MARK: MATHS
-/*
-    CALCOLA LA POTENZA DI DUE
- */
-
-
-//Random limitato da limit [0,limit].. estremi inclusi
-unsigned rand_lim(unsigned limit) {
-    /* return a random number between 0 and limit inclusive.
-     */
-    int divisor = RAND_MAX/(limit+1);
-    int retval;
-
-    do {
-        retval = rand() / divisor;
-    } while (retval > limit);
-    
-    
-    return retval;
-}
-
-unsigned long upper_power_of_two(unsigned long v){
-    v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++;
-    return v;
-}
-
-
-/*log2 malato*/
-const unsigned tab64[64] = {
-    63,  0, 58,  1, 59, 47, 53,  2,
-    60, 39, 48, 27, 54, 33, 42,  3,
-    61, 51, 37, 40, 49, 18, 28, 20,
-    55, 30, 34, 11, 43, 14, 22,  4,
-    62, 57, 46, 52, 38, 26, 32, 41,
-    50, 36, 17, 19, 29, 10, 13, 21,
-    56, 45, 25, 31, 35, 16,  9, 12,
-    44, 24, 15,  8, 23,  7,  6,  5};
-
-unsigned log2_ (unsigned long value){
-    value |= value >> 1;
-    value |= value >> 2;
-    value |= value >> 4;
-    value |= value >> 8;
-    value |= value >> 16;
-    value |= value >> 32;
-    return tab64[((unsigned long)((value - (value >> 1))*0x07EDD5E59A4E28C2)) >> 58];
-}
 
 //MARK: INIT
 
@@ -690,34 +444,6 @@ void end(){
     free(tree);
 #endif
 }
-
-//MARK: PRINT
-
-
-/*traversal tramite left and right*/
-
-void print_in_profondita(node* n){
-    printf("%u has\n", n->pos);
-    printf("%u has %lu B. mem_start in %lu left is %u right is %u status=%lu level=%u\n", n->pos, n->mem_size, n->mem_start, left_index(n), right_index(n), VAL_OF_NODE(n), level(n));
-    if(left_index(n)<= number_of_nodes){
-        print_in_profondita(&left(n));
-        print_in_profondita(&right(n));
-    }
-}
-
-/*Print in ampiezza*/
-
-void print_in_ampiezza(){
-    int i;
-    for(i=1;i<=number_of_nodes;i++){
-        node* n = &tree[i];
-        //per il momento stampiano la stringa
-        printf("%u val=%lu has %lu B. mem_start in %lu  level is %u\n", tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
-        
-        
-    }
-}
-
 
 
 //MARK: ALLOCAZIONE
@@ -1143,253 +869,158 @@ void smarca_(node* n){
     
 }
 
-//MARK: ESECUZIONE
-
-#ifdef SERIAL
-
-void try(){
-    unsigned long scelta;
-    node* result = NULL;
-    
-    while(1){
-        puts("scrivi 1 per alloc, 2 per free");
-        scanf("%lu", &scelta);
-        switch(scelta){
-            case 1:
-                printf("inserisci le pagine che vuoi allocare (MAX %lu)\n", overall_memory_pages);
-                scanf("%lu", &scelta);
-                result = request_memory(scelta);
-                if(result==NULL)
-                    puts("allocazione fallita");
-                break;
-            case 2:
-                printf("inserisci l'indice del blocco che vuoi liberare\n"); //quesot non dovrà essere cosi ma stiamo debuggando.. in realtà la free deve essere chiamata senza interazione con l'utente
-                scanf("%lu", &scelta);
-                free_node(&tree[(int) scelta]);
-                break;
-            default:
-                continue;
-    
-        }
-        puts("Dopo l'esecuzione, l'albero, in ampiezza è:");
-        print_in_ampiezza();
-    }
-}
-
-int main(int argc, char**argv){
-
-    
-    puts("main single thread");
-    
-    if(argc!=2){
-        printf("usage: ./a.out <requested memory (in pagine)>\n");
-        exit(0);
-    }
-    number_of_processes = 1;
-    unsigned long requested = atol(argv[1]);
-    init(requested);
-    
-    try();
-    
-    end();
-    
-    return 0;
-}
-
-#else
 
 /*
- 
-    Con questa funzione faccio un po' di free e di malloc a caso.
- 
+void find_the_bug_on_new_val(unsigned long new_val){
+    unsigned long val[15];
+    val[0] = (new_val & ((unsigned long) (0x1)));
+    val[1] = (new_val & ((unsigned long) (0x1<<1))) >> 1;
+    val[2] = (new_val & ((unsigned long) (0x1<<2))) >> 2;
+    val[3] = (new_val & ((unsigned long) (0x1<<3))) >> 3;
+    val[4] = (new_val & ((unsigned long) (0x1<<4))) >> 4;
+    val[5] = (new_val & ((unsigned long) (0x1<<5)))>> 5;
+    val[6] = (new_val & ((unsigned long) (0x1<<6)))>> 6;
+    val[7] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((8-1) - (7)))))) >> ((7) + (5 * ((8-1) - (7))));
+    val[8] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((9-1) - (7)))))) >> ((7) + (5 * ((9-1) - (7))));
+    val[9] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((10-1) - (7)))))) >> ((7) + (5 * ((10-1) - (7))));
+    val[10] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((11-1) - (7)))))) >> ((7) + (5 * ((11-1) - (7))));
+    val[11] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((12-1) - (7)))))) >> ((7) + (5 * ((12-1) - (7))));
+    val[12] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((13-1) - (7)))))) >> ((7) + (5 * ((13-1) - (7))));
+    val[13] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((14-1) - (7)))))) >> ((7) + (5 * ((14-1) - (7))));
+    val[14] = (new_val & (LEAF_FULL_MASK << ((7) + (5 * ((15-1) - (7)))))) >> ((7) + (5 * ((15-1) - (7))));
+    int i;
+    for(i=0;i<15;i++){
+        if(val[i]!=1 && val[i]!=2 && val[i]!=10 && val[i]!=5 && val[i]!=19 && val[i]!=0 && val[i]!=15 && val[i]!=3 && val[i]!=11 && val[i]!=7) {
+            printf("\n è uscito: %lu!!!!!\n", val[i]);
+            abort();
+        }
+    }
+}
+*/
+/*
+void  find_the_bug(int who){
+    int i;
+    
+    for(i=1;i<=number_of_nodes;i++){
+        node* n = &tree[i];
+        unsigned long val = VAL_OF_NODE(n);
+        if(val!=1 && val!=2 && val!=10 && val!=5 && val!=19 && val!=0 && val!=15 && val!=3 && val!=11 && val!=7){
+            if(who==0)
+                printf("è stata la alloc e ha detto %lu\n", val);
+            else if(who==1)
+                printf("è stata la free e ha detto %lu\n", val);
+            else if(who==2)
+                printf("è stata proprio la free e ha detto %lu\n", val);
+            else if(who==3)
+                printf ("è stata la smarca e ha detto %lu\n", val);
+            else if(who==4)
+                printf("è stata la marca e ha detto %lu\n", val);
+            else if(who==5)
+                printf("è stata la free_node con 5 e ha detto %lu\n", val);
+            abort();
+        }
+    }
+    
+}
+*/
+
+
+//MARK: WRITE SU FILE
+
+/* 
+    SCRIVE SU FILE LA SITUAZIONE DELL'ALBERO (IN AMPIEZZA) VISTA DA UN CERTO THREAD
  */
-void parallel_try(){
-    srand(getpid());
-    int i=0;
-    int tentativi = 10000000 /number_of_processes ;
-    int allocazioni;
-    int free;
-    free=allocazioni=0;
-    for(i=0;i<tentativi;i++){
-        
-        //stampo ogni tanto per controllare che il sistema non si è bloccato
-        if(i%100000==0)
-            printf("(%u) %d\n", mypid, i);
-        
-        
-        unsigned long scelta = rand();
-
-        //FAI L'ALLOCAZIONE
-        if(scelta>=((RAND_MAX/10)*5)){ // 50% di probabilità fai la malloc
-            //QUA CON SCELTA VIENE DECISO IL NUMERO DELLE PAGINE DA ALLOCARE
-            scelta = rand_lim(log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
-            scelta = (MIN_ALLOCABLE_BYTES) << (scelta);
-            if(scelta==0)
-                scelta=1;
-            
-            node* obt;
-            if(takenn_serbatoio->number==0){
-                printf("Allocazioni %d free %d allocazioni-free=%d\n", allocazioni, free, allocazioni-free);
-                exit(0);
-            }
-            obt = request_memory(scelta);
-            
-            if (obt==NULL){
-                //printf("not enough memory\n");
-                failures[write_failures_on]++;
-                continue;
-            }
-            allocazioni++;
-            //printf("giro %d\n",i);
-            taken_list_elem* t = takenn_serbatoio->head;
-            takenn_serbatoio->head = takenn_serbatoio->head->next;
-            takenn_serbatoio->number--;
-            t->elem = obt;
-            t->next = NULL;
-            if(takenn->head!=NULL)
-                t->next = takenn->head;
-            takenn->head = t;
-            takenn->number++;
-            //find_the_bug(0);
-        }
-        
-        else{//FAI UNA FREE A CASO
-            
-            if(takenn->number==0){
-                continue;
-            }
-            free++;
-            //scelgo il nodo da liberare (nella mia taken list
-            scelta = rand_lim((takenn->number)-1);
-
-            if(scelta==0){
-                free_node(takenn->head->elem);
-                taken_list_elem* die = takenn->head;
-                takenn->head = takenn->head->next;
-                takenn->number--;
-                die->next = takenn_serbatoio->head;
-                takenn_serbatoio->head = die;
-                takenn_serbatoio->number++;
-                //find_the_bug(5);
-            }
-            else{
-                taken_list_elem* runner = takenn->head;
-                taken_list_elem* chosen;
-                int j=0;
-                
-                for(j=0;j<scelta-1;j++)
-                    runner = runner->next;
-                
-                chosen = runner->next;
-                free_node(chosen->elem);
-                
-                if(runner->next!=NULL)
-                    runner->next = runner->next->next;
-                else
-                    runner->next=NULL;
-                
-                takenn->number--;
-                chosen->next = takenn_serbatoio->head;
-                takenn_serbatoio->head = chosen;
-                takenn_serbatoio->number++;
-                //find_the_bug(1);
-            }
-            
-        }
-    }
-
-    
-    /*
-    write_taken();
-    if(getpid()==master){
-        //find_the_bug_on_new_val(ROOT->container->nodes);
-        //print_in_ampiezza();
-        write_on_a_file_in_ampiezza();
-        write_on_a_file_touched();
-    }
-    else
-        write_on_a_file_in_ampiezza();
-    */
-}
-
-int main(int argc, char**argv){
-    //time_t time1;
-    //time_t time2;
-    //time ( &time1 );
-    if(argc!=3){
-        printf("usage: ./a.out <number of threads> <number of levels>\n");
-        exit(0);
-    }
-    
+/*
+void write_on_a_file_in_ampiezza(){
+    char filename[128];
+    int i;
 #ifdef NUMA
-    if(numa_available()<0){
-        puts("numa is not available");
-        exit(-1);
+    int actual_node;
+    for(actual_node=0;actual_node<number_of_numa_nodes;actual_node++){
+        tree = overall_trees[actual_node];
+        //puts("stampo");
+        sprintf(filename, "./debug/tree%d_%d.txt", actual_node, getpid());
+        FILE *f = fopen(filename, "w");
+        
+        if (f == NULL){
+            printf("Error opening file!\n");
+            exit(1);
+        }
+        fprintf(f, "%d \n", getpid());
+        
+        for(i=1;i<=number_of_nodes;i++){
+            node* n = &tree[i];
+            fprintf(f, "(%p) %u val=%lu has %lu B. mem_start in %lu  level is %u\n", (void*)n, tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
+        }
+        
+        fclose(f);
     }
-    number_of_numa_nodes = numa_max_node() + 1;
-    //printf("numa nodes are %d\n", number_of_numa_nodes);
-    //printf("%d\n", numa_available());
+    
+#else
+    sprintf(filename, "./debug/tree%d.txt", getpid() - master);
+    FILE *f = fopen(filename, "w");
+    
+    if (f == NULL){
+        printf("Error opening file!\n");
+        exit(1);
+    }
+    //fprintf(f, "%d \n", getpid());
+    
+    for(i=1;i<=number_of_nodes;i++){
+        node* n = &tree[i];
+        fprintf(f, "(%p) %u val=%lu has %lu B. mem_start in %lu  level is %u\n", (void*)n, tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
+    }
+    
+    fclose(f);
 #endif
-    
-    //Per scrivere solo una volta il risultato finale su file
-    master=getpid();
-    int i=0;
-
-    number_of_processes=atoi(argv[1]);
-    unsigned long requested = atol(argv[2]);
-    
-    init(requested);
-    failures = mmap(NULL, sizeof(int) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    //time ( &time2 );
-    //printf("time1= %lu\n", time1);
-    //printf("time2= %lu\n", time2);
-    //printf("time2-time1=%lu\n", time2 -time1);
-    for(i=0; i<number_of_processes; i++){
-        failures[i] = 0;
-        if(fork()==0){
-            //child code, do work and exit.
-            mypid=getpid();
-            write_failures_on = mypid % number_of_processes;
-            //per la gestione dei nodi presi dal singolo processo.
-            takenn = malloc(sizeof(taken_list));
-            takenn->head = NULL;
-            takenn->number = 0;
-            
-            takenn_serbatoio = malloc(sizeof(taken_list));
-            takenn_serbatoio->number = SERBATOIO_DIM;
-            takenn_serbatoio->head = malloc(sizeof(taken_list_elem));
-            taken_list_elem* runner = takenn_serbatoio->head;
-            int j;
-            for(j=0;j<SERBATOIO_DIM;j++){
-                runner->next = malloc(sizeof(taken_list_elem));
-                runner = runner->next;
-            }
-            
-            parallel_try();
-            
-            free(takenn);
-            exit(0);
-        }
-        //else parent spawn processes
-    }
-    
-    //only parent reach this. Wait all processes (-1 parameters) and terminate
-    while (waitpid(-1, NULL, 0)) {
-        if (errno == ECHILD) {
-            break;
-        }
-    }
-    puts("failures:");
-    int total = 0;;
-    for(i=0;i<number_of_processes;i++){
-        printf("%d: %d\n", i, failures[i]);
-        total += failures[i];
-    }
-    printf("total failure is %d\n", total);
-   //write_on_a_file_in_ampiezza();
-    
-    return 0;
 }
+*/
+/*
+void write_on_a_file_touched(){
+    char filename[128];
+    sprintf(filename, "./debug/touched.txt");
+    FILE *f = fopen(filename, "w");
+    int i;
+    
+    if (f == NULL){
+        printf("Error opening file!\n");
+        exit(1);
+    }
+    
+    for(i=1;i<=number_of_nodes;i++){
+        node* n = &tree[i];
+        if(VAL_OF_NODE(n)!=0){
+            fprintf(f,"%u\n", n->pos);
+        }
+    }
+    
+    fclose(f);
+}
+*/
 
-#endif
 
+//MARK: PRINT
+
+
+/*traversal tramite left and right*/
+/*
+void print_in_profondita(node* n){
+    printf("%u has\n", n->pos);
+    printf("%u has %lu B. mem_start in %lu left is %u right is %u status=%lu level=%u\n", n->pos, n->mem_size, n->mem_start, left_index(n), right_index(n), VAL_OF_NODE(n), level(n));
+    if(left_index(n)<= number_of_nodes){
+        print_in_profondita(&left(n));
+        print_in_profondita(&right(n));
+    }
+}
+*/
+/*Print in ampiezza*/
+/*
+void print_in_ampiezza(){
+    int i;
+    for(i=1;i<=number_of_nodes;i++){
+        node* n = &tree[i];
+        //per il momento stampiano la stringa
+        printf("%u val=%lu has %lu B. mem_start in %lu  level is %u\n", tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));      
+    }
+}
+*/

@@ -2,22 +2,56 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <sys/mman.h>
 #include <errno.h>
+#include <sys/mman.h>
+#include <time.h>
 #include <sys/wait.h>
 #include "nballoc.h"
 #include "utils.h"
 
+#ifdef NUMA
+    #include <numa.h>
+    #include <numaif.h>
+    #include <sched.h>
+#endif
 
 int number_of_processes;
-unsigned master;
-unsigned mypid;
+#ifdef NUMA
+int number_of_numa_nodes;
+#endif
 
 taken_list* takenn;
 taken_list* takenn_serbatoio;
 int* failures;
 int write_failures_on;
 
+/*
+    SCRIVE SU FILE I NODI PRESI DA UN THREAD - FUNZIONE PRETTAMENTE DI DEBUG
+ */
+void write_taken(){
+    char filename[128];
+    sprintf(filename, "./debug/taken_%d.txt", getpid()%number_of_processes);
+    FILE *f = fopen(filename, "w");
+    unsigned i;
+    
+    if (f == NULL){
+        printf("Error opening file!\n");
+        exit(1);
+    }
+    
+    taken_list_elem* runner = takenn->head;
+    
+    /* print some text */
+    for(i=0;i<takenn->number;i++){
+        fprintf(f, "%u\n", runner->elem->pos);
+        runner=runner->next;
+    }
+    
+    
+    
+    fclose(f);
+    
+}
 
 //MARK: ESECUZIONE
 
@@ -35,24 +69,25 @@ void try(){
                 printf("inserisci le pagine che vuoi allocare (MAX %lu)\n", overall_memory_pages);
                 scanf("%lu", &scelta);
                 result = request_memory(scelta);
+                if(result==NULL)
+                    puts("allocazione fallita");
                 break;
             case 2:
                 printf("inserisci l'indice del blocco che vuoi liberare\n"); //quesot non dovrà essere cosi ma stiamo debuggando.. in realtà la free deve essere chiamata senza interazione con l'utente
                 scanf("%lu", &scelta);
-                free_node(tree[(int) scelta]);
+                free_node(&tree[(int) scelta]);
                 break;
             default:
                 continue;
-                
+    
         }
-        if(result==NULL)
-            puts("allocazione fallita");
         puts("Dopo l'esecuzione, l'albero, in ampiezza è:");
         print_in_ampiezza();
     }
 }
 
 int main(int argc, char**argv){
+
     
     puts("main single thread");
     
@@ -75,7 +110,7 @@ int main(int argc, char**argv){
 
 /*
  
- Con questa funzione faccio un po' di free e di malloc a caso.
+    Con questa funzione faccio un po' di free e di malloc a caso.
  
  */
 void parallel_try(){
@@ -158,36 +193,48 @@ void parallel_try(){
 }
 
 int main(int argc, char**argv){
-    printf("Test in concorrenza\n");
+    //time_t time1;
+    //time_t time2;
+    //time ( &time1 );
     if(argc!=3){
         printf("usage: ./a.out <number of threads> <number of levels>\n");
         exit(0);
     }
     
+#ifdef NUMA
+    if(numa_available()<0){
+        puts("numa is not available");
+        exit(-1);
+    }
+    number_of_numa_nodes = numa_max_node() + 1;
+    //printf("numa nodes are %d\n", number_of_numa_nodes);
+    //printf("%d\n", numa_available());
+#endif
+    
     //Per scrivere solo una volta il risultato finale su file
     master=getpid();
     int i=0;
-    
+
     number_of_processes=atoi(argv[1]);
     unsigned long requested = atol(argv[2]);
     
-    
     init(requested);
     failures = mmap(NULL, sizeof(int) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    
+    //time ( &time2 );
+    //printf("time1= %lu\n", time1);
+    //printf("time2= %lu\n", time2);
+    //printf("time2-time1=%lu\n", time2 -time1);
     for(i=0; i<number_of_processes; i++){
         failures[i] = 0;
         if(fork()==0){
             //child code, do work and exit.
             mypid=getpid();
-            
             write_failures_on = mypid % number_of_processes;
             //per la gestione dei nodi presi dal singolo processo.
             takenn = malloc(sizeof(taken_list));
             takenn->head = NULL;
             takenn->number = 0;
             
-            //crea lista di nodi da riusare 
             takenn_serbatoio = malloc(sizeof(taken_list));
             takenn_serbatoio->number = SERBATOIO_DIM;
             takenn_serbatoio->head = malloc(sizeof(taken_list_elem));
@@ -197,9 +244,9 @@ int main(int argc, char**argv){
                 runner->next = malloc(sizeof(taken_list_elem));
                 runner = runner->next;
             }
-            runner->next = NULL;
             
             parallel_try();
+            
             free(takenn);
             exit(0);
         }
@@ -212,7 +259,6 @@ int main(int argc, char**argv){
             break;
         }
     }
-    
     puts("failures:");
     int total = 0;;
     for(i=0;i<number_of_processes;i++){
@@ -220,7 +266,7 @@ int main(int argc, char**argv){
         total += failures[i];
     }
     printf("total failure is %d\n", total);
-    //write_on_a_file_in_ampiezza();
+   //write_on_a_file_in_ampiezza();
     
     return 0;
 }
