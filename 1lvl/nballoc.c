@@ -154,7 +154,6 @@ void destroy(){
 
 
 /*
-
  API for memory allocation.
  
  @Author: Andrea Scarselli
@@ -197,22 +196,18 @@ node* request_memory(unsigned byte){
             return &tree[actual];
         }
         
-        // ROMOLO: failed_at_node è una variabile che potrebbe essere locale a questa funzione
         if(failed_at_node==1){ // il buddy è pieno
             return NULL;
         }
         
-        // ROMOLO: da studiare 
         //Questo serve per evitare tutto il sottoalbero in cui ho fallito
         actual=(failed_at_node+1)* (1<<( level(&tree[actual]) - level(& tree[failed_at_node])));
         
-        // ROMOLO: può verificarsi questa condizione??
         if(actual>last_node){ //se ho sforato riparto dal primo utile, se il primo era quello da cui avevo iniziato esco al controllo del while
             actual=starting_node;
             restarted = true;
         }
     
-    // ROMOLO: fa più giri del dovuto??
     }while(restarted==false || actual < started_at);
     
     return NULL;
@@ -322,10 +317,10 @@ static bool alloc(node* n){
  */
 static void smarca_(node* n){
     
-    node* actual = &
-    parent(n);
+    node* actual = &parent(n);
     unsigned long actual_value;
     unsigned long new_val;
+    
     do{
         actual_value = actual->val;
         new_val = actual_value;
@@ -341,8 +336,11 @@ static void smarca_(node* n){
         else
             new_val = new_val & MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT;
     } while (!__sync_bool_compare_and_swap(&actual->val,actual_value,new_val));
+
+
     if(actual==upper_bound) //se sono arrivato alla radice ho finito
         return;
+
     if(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) //if n è sinistro AND (parent(n).actual_value.b4=1) Interrompo! Mio nonno deve vedere il sottoramo occupato perchè mio fratello tiene occupato mio padre!!
         return;
     else if(&
@@ -354,7 +352,7 @@ static void smarca_(node* n){
 }
 
 
-
+// TODO RIMUOVERE???
 static void smarca(node* n){
     upper_bound = &ROOT;
     smarca_(n);
@@ -370,16 +368,16 @@ static void smarca(node* n){
  @param upper_bound: l'ultimo nodo da liberare
  */
 static void free_node_(node* n){
-    if(n->val!=OCCUPY_BLOCK){
-        
+    unsigned int actual_value;
+    unsigned int new_value;
+
+    if( n->val != OCCUPY_BLOCK ){
         printf("err: il blocco non è occupato\n");
         return;
     }
     
     node* actual = &parent(n);
     node* runner = n;
-    unsigned long actual_value;
-    unsigned long new_value;
     
     while(runner!=upper_bound){
         do{
@@ -388,12 +386,13 @@ static void free_node_(node* n){
                 new_value = actual_value | MASK_LEFT_COALESCE;
             else
                 new_value = actual_value | MASK_RIGHT_COALESCE;
-        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value));
+        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value)); // TODO use fetch_&_or
+
         runner = actual;
         actual = &parent(actual);
     }
     
-    n->val = 0; //controlla se ci vuole la CAS
+    n->val = 0; // TODO aggiungi barriera
     //print_in_ampiezza();
     if(n!=upper_bound)
         smarca_(n);
