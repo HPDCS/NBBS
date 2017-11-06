@@ -3,6 +3,15 @@ FLAGS=-g -Wall -lm
 #INCLUDE= -I include/ -I mm/ -I core/ -Istatistics/
 EXECUTABLE=test
 
+
+ifdef MIN
+FLAGS:= $(FLAGS) -DMIN_ALLOCABLE_BYTES=$(MIN)
+endif
+
+ifdef MAX
+FLAGS:= $(FLAGS) -DMAX_ALLOCABLE_BYTE=$(MAX)
+endif
+
 all: test
 
 test: main.o nballoc.o utils.o

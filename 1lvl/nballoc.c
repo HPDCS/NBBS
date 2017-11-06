@@ -55,6 +55,7 @@ node* trying;
 unsigned int failed_at_node;
 unsigned int overall_height;
 node* upper_bound;
+unsigned int max_level;
 
 extern int number_of_processes;
 extern taken_list* takenn;
@@ -87,19 +88,31 @@ void init(unsigned long levels){
     
     overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
     
+    if(overall_memory_size < MAX_ALLOCABLE_BYTE){
+		printf("Not enough levels\n");
+		abort();
+	}
+	
+	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
+    
     overall_memory = mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     
-    if(overall_memory==MAP_FAILED)
+    if(overall_memory == MAP_FAILED)
         abort();
         
     tree = mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     
-    if(tree==MAP_FAILED)
+    if(tree == MAP_FAILED)
         abort();
     
     init_tree(number_of_nodes);
     
-    puts("init complete");
+    printf("Init complete\n");
+    printf("\t Total Memory = %lu\n", overall_memory_size);
+    printf("\t Levels = %u\n", overall_height);
+    printf("\t Leaves = %u\n", (number_of_nodes+1)/2);
+    printf("\t Min size %u at level %u\n", MIN_ALLOCABLE_BYTES, overall_height);
+    printf("\t Max size %u at level %u\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
 }
 
 
@@ -161,7 +174,7 @@ node* request_memory(unsigned byte){
     
     bool restarted = false;
 
-    if( byte > MAX_ALLOCABLE_BYTE )
+    if( byte > MAX_ALLOCABLE_BYTE || byte > overall_memory_size)
         return NULL;
     
     byte = upper_power_of_two(byte);
@@ -172,14 +185,13 @@ node* request_memory(unsigned byte){
     starting_node  = overall_memory_size / byte;            //first node for this level
     last_node      = left_index(&tree[starting_node])-1;    //last node for this level
 
-//    actual = mypid % number_of_processes;                   //actual è il posto in cui iniziare a cercare
+//    actual = myid;                   //actual è il posto in cui iniziare a cercare
 //    if(last_node - starting_node != 0)
 //        actual = actual % (last_node - starting_node);
 //    else
 //        actual = 0;
 //    actual = starting_node + actual;
-    actual = starting_node + 
-			(mypid % number_of_processes) * ((last_node - starting_node + 1)/number_of_processes);
+    actual = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
         
     started_at = actual;
     
@@ -220,7 +232,7 @@ static bool check_parent(node* n){
     unsigned long new_value;
     node *actual = n, *son = n;//&parent(actual);
     
-    while(actual != &ROOT){
+    while(actual != &ROOT){ //  && level(actual) <= max_level --secondo me si può fermare appena vede un fratello a 1
 		son = actual;
 		actual = &parent(actual);
     
@@ -246,7 +258,7 @@ static bool check_parent(node* n){
 				new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
 				//new_value = new_value | MASK_OCCUPY_RIGHT;
 			}
-			//TODO: se new_val=sctual_val non serve fare la CAS
+			//TODO: se new_val=actual_val non serve fare la CAS
 		}while(new_value != actual_value && //CONTROLLA!!!
 				!__sync_bool_compare_and_swap(&actual->val, actual_value, new_value));
     }
@@ -275,7 +287,7 @@ static bool alloc(node* n){
     }
     
     //ho allocato tutto l'albero oppure sono riuscito a risalire fino alla radice
-    return (n==&ROOT || check_parent(n));
+    return (n==&ROOT || check_parent(n));//||level(n) > max_level
     
 //    if(n==&ROOT || check_parent(n)){
 //        return true;
@@ -320,6 +332,8 @@ static void smarca_(node* n){
 	}while(	(actual!=upper_bound) &&
 			!(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) &&
 			!(&right(actual)==n && (actual->val & MASK_OCCUPY_LEFT)!=0) );
+			//  || level(actual) <= max_level
+			
 	
 
 //    if(actual==upper_bound) //se sono arrivato alla radice ho finito
@@ -335,7 +349,7 @@ static void smarca_(node* n){
 
 // TODO RIMUOVERE???
 static void smarca(node* n){
-    upper_bound = &ROOT;
+    upper_bound = &ROOT; 
     smarca_(n);
 }
 
@@ -360,7 +374,7 @@ static void free_node_(node* n){
     node* actual = &parent(n);
     node* runner = n;
     
-    while(runner!=upper_bound){
+    while(runner!=upper_bound){ //  && level(runner) <=max_level
 		actual_value = actual->val; //CONTROLLARE
         if(&left(actual)==runner)
 			__sync_fetch_and_or(&actual->val, actual_value | MASK_LEFT_COALESCE);

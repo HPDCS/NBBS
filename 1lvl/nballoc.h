@@ -36,6 +36,7 @@ typedef struct _taken_list{
 
 
 extern unsigned mypid;
+extern unsigned myid;
 
 void init(unsigned long memory);
 void free_node(node* n);
