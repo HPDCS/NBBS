@@ -16,7 +16,7 @@ unsigned int myid;
 
 taken_list* takenn;
 taken_list* takenn_serbatoio;
-unsigned long long *failures, *allocs, *frees, *ops;
+unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
 //int write_failures_on;
 
 
@@ -91,7 +91,10 @@ void parallel_try(){
     tentativi = ops[myid] = 10000000 / number_of_processes ;
     i = j = 0;
     
-    //printf("[%u] pid=%u tentativi=%u\n", myid, mypid, tentativi);
+    //__asm__ __volatile__ ("mfence" ::: "memory");
+    
+    
+    printf("[%u] pid=%u tentativi=%u ops=%llu\n", myid, mypid, tentativi, ops[myid]);
     
     for(i=0;i<tentativi;i++){
 		scelta = rand();
@@ -128,6 +131,7 @@ void parallel_try(){
         //FREE
         else{
             if(takenn->number==0){
+				printf("WTF\n");
                 continue;
             }
             frees[myid]++;
@@ -156,7 +160,7 @@ void parallel_try(){
         }
     }
     //__asm__ __volatile__ ("mfence" ::: "memory");
-    //printf("[%u] FINI:%u %llu\n", myid, i, ops[myid]);
+    printf("[%u] FINI:%u %llu\n", myid, i, ops[myid]);
      
 }
 
@@ -180,13 +184,15 @@ int main(int argc, char**argv){
     allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     frees = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     ops = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    
+        
     for(i=0; i<number_of_processes; i++){
         allocs[i] = 0;
         frees[i] = 0;
         failures[i] = 0;
         ops[i] = 0;
-        
+    }
+    
+    for(i=0; i<number_of_processes; i++){
         if(fork()==0){
             //child code, do work and exit.
             mypid = getpid();//__sync_fetch_and_add(id_counter, 1);//
@@ -217,11 +223,17 @@ int main(int argc, char**argv){
     }
     
     //only parent reach this. Wait all processes (-1 parameters) and terminate
-    while (waitpid(-1, NULL, 0)) {
+    int status, local_pid;
+    while ( (local_pid = waitpid(-1, &status, 0)) ){
+		printf("Il figlio %d è terminato\n", local_pid);
         if (errno == ECHILD) {
+			//sleep(3);
             break;
         }
+        if(!WIFEXITED(status)) printf("#####Figlio uscito per errore\n");
     }
+    
+    if(!WIFEXITED(status)) printf("#####Figlio uscito per errore\n");
     //__asm__ __volatile__ ("mfence" ::: "memory");
     unsigned long long total_fail = 0, total_alloc = 0, total_free = 0, total_ops = 0;
     for(i=0;i<number_of_processes;i++){
