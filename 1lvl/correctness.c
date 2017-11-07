@@ -80,7 +80,7 @@ int main(int argc, char**argv){
  
  */
 void parallel_try(){
-    unsigned int i, j, tentativi;
+    unsigned int i, j, tentativi, kept;
     unsigned long scelta;
     unsigned int scelta_lvl;
     
@@ -89,16 +89,16 @@ void parallel_try(){
     
     scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
     tentativi = ops[myid] = 10000000 / number_of_processes ;
+    kept = number_of_leaves/number_of_processes;
     i = j = 0;
     
-    //printf("[%u] pid=%u tentativi=%u ops=%llu\n", myid, mypid, tentativi, ops[myid]);
-    
-    for(i=0;i<tentativi;i++){
+    printf("[%u] pid=%u tentativi=%u ops=%llu\n", myid, mypid, tentativi, ops[myid]);
+    for(i = 0; i < tentativi ;i++){
 		scelta = rand();
         //ALLOC
-        //if(scelta >=((RAND_MAX/10)*5)){
-        if(scelta > ((RAND_MAX/10)*takenn->number)){
-            
+        if(scelta >=((RAND_MAX/10)*5)){
+        //if(scelta > ((RAND_MAX/10)*takenn->number)){
+            if(takenn->number == kept) break;
             //QUA CON SCELTA VIENE DECISO IL NUMERO DELLE PAGINE DA ALLOCARE
             scelta = (MIN_ALLOCABLE_BYTES) << (rand_lim(scelta_lvl)); //<<rimpiazza con un exp^(-1)
             //if(scelta==0)
@@ -159,7 +159,6 @@ void parallel_try(){
     }
     //__asm__ __volatile__ ("mfence" ::: "memory");
     //printf("[%u] FINI:%u %llu\n", myid, i, ops[myid]);
-     
 }
 
 int main(int argc, char**argv){
@@ -239,6 +238,7 @@ int main(int argc, char**argv){
         printf("Process %d: TOT_OPS %llu\n",i, ops[i]);
         printf("\t allocati: %llu\n", allocs[i]);
         printf("\t dealloca: %llu\n", frees[i]);
+        printf("\t     diff: %llu\n", allocs[i]-frees[i]);
         printf("\t failures: %llu\n", failures[i]);
         printf("\t tot_ops_done: %llu\n", allocs[i]+frees[i]);
         total_fail += failures[i];
@@ -252,10 +252,10 @@ int main(int argc, char**argv){
     printf("total frees is    %llu\n", total_free);
     printf("total failures is %llu\n", total_fail);
     printf("total operations: %llu\n", total_alloc + total_free + total_fail);
+    //write_on_a_file_in_ampiezza();
 #ifdef DEBUG
     printf("total nodes allocated: %llu\n", *node_allocated);
     printf("total memory allocated: %llu Bytes\n", *size_allocated);
-    //write_on_a_file_in_ampiezza();
 #endif
     
     return 0;

@@ -50,6 +50,7 @@ Bitmap for each node:
 node* tree; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 unsigned long overall_memory_size;
 unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
+unsigned int number_of_leaves; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 void* overall_memory;
 node* trying;
 unsigned int failed_at_node;
@@ -67,6 +68,9 @@ static void smarca_(node* n);
 static void smarca(node* n);
 static void free_node_(node* n);
 
+#ifdef DEBUG
+unsigned long long *node_allocated, *size_allocated;
+#endif
 
 /*******************************************************************
                 INIT NB-BUDDY SYSTEM
@@ -84,7 +88,7 @@ void init(unsigned long levels){
     
     overall_height = levels;
     
-    unsigned number_of_leaves = 1 << (levels - 1);
+    number_of_leaves = 1 << (levels - 1);
     
     overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
     
@@ -106,6 +110,17 @@ void init(unsigned long levels){
         abort();
     
     init_tree(number_of_nodes);
+    
+
+#ifdef DEBUG
+	node_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    size_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+      
+    __sync_fetch_and_and(node_allocated,0);
+    __sync_fetch_and_and(size_allocated,0);
+    
+	printf("Debug mode: ON\n");
+#endif
     
     printf("Init complete\n");
     printf("\t Total Memory = %lu\n", overall_memory_size);
@@ -198,6 +213,10 @@ node* request_memory(unsigned byte){
     //quando faccio un giro intero ritorno NULL
     do{
         if(alloc(&tree[actual]) == true){
+#ifdef DEBUG
+			__sync_fetch_and_add(node_allocated,1);
+			__sync_fetch_and_add(size_allocated,byte);
+#endif
             return &tree[actual];
         }        
         //if(failed_at_node == 1){ // il buddy è pieno
@@ -403,6 +422,10 @@ static void free_node_(node* n){
 void free_node(node* n){
     upper_bound = &ROOT;
     free_node_(n);
+#ifdef DEBUG
+	__sync_fetch_and_add(node_allocated,-1);
+	__sync_fetch_and_add(size_allocated,-(n->mem_size));
+#endif
 }
 
 
