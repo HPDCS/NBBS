@@ -236,7 +236,7 @@ static bool check_parent(node* n){
 		son = actual;
 		actual = &parent(actual);
     
-		do{
+		//do{
 			actual_value = actual->val;
 			
 			//Se l'AND con OCCUPY fallisce vuol dire che qualcuno lo ha occupato
@@ -258,9 +258,10 @@ static bool check_parent(node* n){
 				new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
 				//new_value = new_value | MASK_OCCUPY_RIGHT;
 			}
+			actual->val = new_value;
 			//TODO: se new_val=actual_val non serve fare la CAS
-		}while(new_value != actual_value && //CONTROLLA!!!
-				!__sync_bool_compare_and_swap(&actual->val, actual_value, new_value));
+		//}while(new_value != actual_value && //CONTROLLA!!!
+		//		!__sync_bool_compare_and_swap(&actual->val, actual_value, new_value));
     }
     return true;
 }
@@ -281,10 +282,11 @@ static bool alloc(node* n){
     trying = n;
     
     //il nodo è stato parallelamente occupato. Parzialmente o totalmente
-    if(actual != 0 || !__sync_bool_compare_and_swap(&n->val,0,OCCUPY_BLOCK)){
+    if(actual != 0 ){
         failed_at_node = n->pos;
         return false;
     }
+    n->val = OCCUPY_BLOCK;
     
     //ho allocato tutto l'albero oppure sono riuscito a risalire fino alla radice
     return (n==&ROOT || check_parent(n));//||level(n) > max_level
@@ -312,22 +314,22 @@ static void smarca_(node* n){
     do{
 		actual = &parent(actual);
     
-		do{
+		//do{
 			actual_value = actual->val;
 			new_val = actual_value;
 			//libero il rispettivo sottoramo su new val
-			if( (&left(actual)==son && (actual_value & MASK_LEFT_COALESCE)==0) ||
-				(&right(actual)==son && (actual_value & MASK_RIGHT_COALESCE)==0)
-				){ //if n è sinistro AND b1=0 || if n è destro AND b1=0...già riallocato
-				return;
-			}
+			//if( (&left(actual)==son && (actual_value & MASK_LEFT_COALESCE)==0) ||
+			//	(&right(actual)==son && (actual_value & MASK_RIGHT_COALESCE)==0)
+			//	){ //if n è sinistro AND b1=0 || if n è destro AND b1=0...già riallocato
+			//	return;
+			//}
 			
 			if (&left(actual)==son)
 				new_val = new_val & MASK_CLEAN_LEFT_COALESCE & MASK_CLEAN_OCCUPIED_LEFT;
 			else
 				new_val = new_val & MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT;
-				
-		} while (!__sync_bool_compare_and_swap(&actual->val,actual_value,new_val));
+			actual->val = new_val;
+		//} while (!__sync_bool_compare_and_swap(&actual->val,actual_value,new_val));
 
 	}while(	(actual!=upper_bound) &&
 			!(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) &&
@@ -371,16 +373,16 @@ static void free_node_(node* n){
         return;
     }
     
-    node* actual = &parent(n);
-    node* runner = n;
-    
-    while(runner!=upper_bound){ //  && level(runner) <=max_level
-		actual_value = actual->val; //CONTROLLARE
-        if(&left(actual)==runner)
-			__sync_fetch_and_or(&actual->val, actual_value | MASK_LEFT_COALESCE);
-		else
-			__sync_fetch_and_or(&actual->val, actual_value | MASK_RIGHT_COALESCE);
-        
+//    node* actual = &parent(n);
+//    node* runner = n;
+//    
+//    while(runner!=upper_bound){ //  && level(runner) <=max_level
+//		actual_value = actual->val; //CONTROLLARE
+//        if(&left(actual)==runner)
+//			__sync_fetch_and_or(&actual->val, actual_value | MASK_LEFT_COALESCE);
+//		else
+//			__sync_fetch_and_or(&actual->val, actual_value | MASK_RIGHT_COALESCE);
+//        
 //        do{
 //            actual_value = actual->val;
 //            if(&left(actual)==runner)
@@ -388,10 +390,10 @@ static void free_node_(node* n){
 //            else
 //                new_value = actual_value | MASK_RIGHT_COALESCE;
 //        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value)); // TODO use fetch_&_or
-
-        runner = actual;
-        actual = &parent(actual);
-    }
+//
+//        runner = actual;
+//        actual = &parent(actual);
+//    }
     
     n->val = 0; // TODO aggiungi barriera --- secondo me "__sync_lock_release" va bene
     //print_in_ampiezza();
@@ -478,13 +480,13 @@ void free_node(node* n){
 
 // /*Print in ampiezza*/
 
-// void print_in_ampiezza(){
-    
-//     int i;
-//     for(i=1;i<=number_of_nodes;i++){
-//         //printf("%p\n", tree[i]);
-//         printf("%u has %lu B. mem_start in %lu val is %lu level=%u\n", tree[i].pos, tree[i].mem_size,tree[i].mem_start, tree[i].
-//                val, level(&tree[i]));
-//         //printf("%u has %lu B\n", tree[i]->pos, tree[i]->mem_size);
-//     }
-// }
+ void print_in_ampiezza(){
+  
+     int i;
+     for(i=1;i<=number_of_nodes;i++){
+         //printf("%p\n", tree[i]);
+         printf("%u has %lu B. mem_start in %lu val is %lu level=%u\n", tree[i].pos, tree[i].mem_size,tree[i].mem_start, tree[i].
+                val, level(&tree[i]));
+         //printf("%u has %lu B\n", tree[i]->pos, tree[i]->mem_size);
+     }
+ }

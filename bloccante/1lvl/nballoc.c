@@ -310,7 +310,7 @@ static void smarca_(node* n){
     node *actual = n, *son = n;//&parent(n);
     
     do{
-		actual = &parent(actual);
+		actual = &parent(n);
     
 		do{
 			actual_value = actual->val;
