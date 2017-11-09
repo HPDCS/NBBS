@@ -15,6 +15,19 @@
     #include <sched.h>
 #endif
 
+/*********************************************     
+*       MASKS FOR ACCESSING CONTAINER BITMAPS
+*********************************************
+
+Bitmap for container:
+   47		 13 	12				11					10					9				8		 7  6  5  4  3  2  1  0	
+  |------------|-----------|--------------------|--------------------|--------------|--------------|--|--|--|--|--|--|--|--|
+  | RPEAT FOR  | OCCUPANCY | PENDING COALESCING | PENDING COALESCING | OCCUPANCY OF | OCCUPANCY OF |   ONE OCCUPANCY BIT   |
+  | EACH LEAF  |           | OPS ON LEFT  CHILD | OPS ON RIGHT CHILD | LEFT CHILD   | RIGHT CHILD  |   FOR EACH NOT LEAF   |
+  |------------|-----------|--------------------|--------------------|--------------|--------------|--|--|--|--|--|--|--|--|
+
+*/
+
 
 //bool __sync_bool_compare_and_swap (type *ptr, type oldval type newval)
 
@@ -102,6 +115,7 @@ unsigned master;
 node* tree; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1].
 unsigned long overall_memory_size;
 unsigned long overall_memory_pages;
+unsigned int number_of_leaves;
 unsigned number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 #ifdef NUMA
     void** overall_memory; //array of pointers. One pointer for each numa NODE
@@ -111,7 +125,6 @@ unsigned number_of_nodes; //questo non tiene presente che tree[0] è dummy! se q
 node trying;
 unsigned failed_at_node;
 unsigned overall_height;
-unsigned mypid;
 
 #ifdef NUMA
     node_container** overall_containers; //Uno per ogni albero (uno per ogni nodo)
@@ -126,12 +139,15 @@ int number_of_processes;
 int number_of_numa_nodes;
 #endif
 
+#ifdef DEBUG
+unsigned long long *node_allocated, *size_allocated;
+#endif
+
 void init_node(node* n);
 void init_tree(unsigned long number_of_nodes);
 void init(unsigned long memory);
-void free_nodes(node* n); //questo fa la free fisicamente
 void end();
-void print(node* n);
+//void print(node* n);
 bool alloc(node* n);
 void marca(node* n);
 bool IS_OCCUPIED(unsigned long, unsigned);
@@ -151,8 +167,8 @@ void smarca(node* n){
     smarca_(n);
 }
 
-void print_in_profondita(node*);
-void print_in_ampiezza();
+//void print_in_profondita(node*);
+//void print_in_ampiezza();
 void free_node_(node* n);
 
 /*Queste funzioni sono esposte all'utente*/
@@ -164,6 +180,10 @@ void free_node(node* n){
 #endif
     upper_bound = &ROOT;
     free_node_(n);
+#ifdef DEBUG
+	__sync_fetch_and_add(node_allocated,-1);
+	__sync_fetch_and_add(size_allocated,-(n->mem_size));
+#endif
 }
 
 
@@ -216,12 +236,11 @@ next_node_label:
         }
         else{
             tree[i].container = parent.container;
-            if(left_index(&parent)==i)
-                tree[i].container_pos = parent.container_pos*2;
-            
-            else
-                tree[i].container_pos = (parent.container_pos*2)+1;
-            
+            tree[i].container_pos = (parent.container_pos*2)+(1&(left_index(&parent)!=i));
+            //if(left_index(&parent)==i)
+            //    tree[i].container_pos = parent.container_pos*2;
+            //else
+            //    tree[i].container_pos = (parent.container_pos*2)+1;
         }
             
         
@@ -302,7 +321,7 @@ void init(unsigned long levels){
     number_of_nodes = (1<<levels) -1;
     printf("NUMA %d\n", number_of_nodes);
     
-    unsigned number_of_leaves = (1<< (levels-1));
+    number_of_leaves = (1<< (levels-1));
     overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
     printf("number_of_leaves = %u, overall_memory_size=%lu\n", number_of_leaves, overall_memory_size);
     
@@ -375,6 +394,16 @@ void init(unsigned long levels){
     init_tree(number_of_nodes);
     puts("NUMA init complete");
     
+#ifdef DEBUG
+	node_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    size_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+      
+    __sync_fetch_and_and(node_allocated,0);
+    __sync_fetch_and_and(size_allocated,0);
+    
+	printf("Debug mode: ON\n");
+#endif
+    
 }
 #else
 
@@ -386,7 +415,7 @@ void init(unsigned long levels){
     number_of_nodes = (1<<levels) - 1;
     printf("NON NUMA: %d\n", number_of_nodes);
     
-    unsigned number_of_leaves = (1<< (levels-1));
+    number_of_leaves = (1<< (levels-1));
     overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
     printf("number_of_leaves = %u, overall_memory_size=%lu\n", number_of_leaves, overall_memory_size);
     
@@ -400,7 +429,6 @@ void init(unsigned long levels){
     }
     
     overall_height = levels;
-    
 
     tree = mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     
@@ -416,7 +444,25 @@ void init(unsigned long levels){
     }
     
     init_tree(number_of_nodes);
-    puts("UMA init complete");
+    
+#ifdef DEBUG
+	node_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    size_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+      
+    __sync_fetch_and_and(node_allocated,0);
+    __sync_fetch_and_and(size_allocated,0);
+    
+	printf("Debug mode: ON\n");
+#endif
+    
+    printf("UMA Init complete\n");
+    printf("\t Total Memory = %lu\n", overall_memory_size);
+    printf("\t Levels = %u\n", overall_height);
+    printf("\t Leaves = %u\n", (number_of_nodes+1)/2);
+    printf("\t Nodes = %u\n", number_of_nodes);
+    printf("\t Containers = %u\n", first_available_container);
+    printf("\t Min size %u at level %u\n", MIN_ALLOCABLE_BYTES, overall_height);
+    printf("\t Max size %u at level %u\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
     
 }
 #endif
@@ -496,20 +542,17 @@ bool IS_OCCUPIED(unsigned long val, unsigned pos){
  @return l'indirizzo di memoria del nodo utilizzato per soddisfare la richiesta; NULL in caso di fallimento
  */
 node* request_memory(unsigned byte){
-    //write_on_a_file_in_ampiezza();
-    //exit(0);
+	bool restarted = false; 
+    unsigned started_at, actual, starting_node, last_node;
+    
     if(byte>MAX_ALLOCABLE_BYTE)
         return NULL;
-    
-    byte = upper_power_of_two(byte);
+        byte = upper_power_of_two(byte);
     if(byte<MIN_ALLOCABLE_BYTES)
         byte = MIN_ALLOCABLE_BYTES;
-    //printf("alloco %u\n", byte);
-    bool restarted;
-    unsigned started_at;
-    unsigned actual;
-    unsigned starting_node = overall_memory_size / byte; //first node for this level
-    unsigned last_node = left_index(&tree[starting_node])-1; //last node for this level
+    
+    starting_node = overall_memory_size / byte; //first node for this level
+    last_node = left_index(&tree[starting_node])-1; //last node for this level
     
 #ifdef NUMA
     //inizia a cercare nell'albero relativo al nodo numa in cui sto girando
@@ -520,29 +563,18 @@ try_on_a_new_numa_node_label:
     containers = overall_containers[trying_on_numa_node];
 #endif
     
-    
     //actual è il posto in cui iniziare a cercare
-    
-    actual = mypid % number_of_processes;
-    
-    if(last_node-starting_node!=0)
-        actual = actual % (last_node - starting_node);
-    else
-        actual=0;
-    
-    actual = starting_node + actual;
-    
-    
-    started_at = actual;
-    
-    restarted = false;
-    
+    actual = started_at = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
+   
     //quando faccio un giro intero ritorno NULL
     do{
         if(alloc(&tree[actual])==true){
+#ifdef DEBUG
+			__sync_fetch_and_add(node_allocated,1);
+			__sync_fetch_and_add(size_allocated,byte);
+#endif
             return &tree[actual];
         }
-        
         
         if(failed_at_node==1){ // il buddy è pieno
 #ifdef NUMA
@@ -566,7 +598,7 @@ try_on_a_new_numa_node_label:
             restarted = true;
         }
         
-    }while(restarted==false || actual < started_at);
+    }while(restarted == false || actual < started_at);
     
 #ifdef NUMA
     if(allocate_in_remote_node && ((trying_on_numa_node+1)%number_of_numa_nodes) != starting_numa_node){
@@ -588,13 +620,13 @@ try_on_a_new_numa_node_label:
  */
 unsigned long occupa_discendenti(node* n, unsigned long new_val){
     //se l'ultimo grappolo non ha tutti i nodi che deve avere (tipo ha solo due livelli). QUesto quando andiamo a regime non dovrebbe succedere perchè questa situazione la evitiamo (inutile avere un grappolo monco.. il numero di cas è lo stesso
-    if(left_index(n)>=number_of_nodes)
+    if(left_index(n)>=number_of_nodes)//MAURO: non sono sicuro sia corretto...
         return new_val;
     if(!IS_LEAF(&left(n))){
         new_val = LOCK_NOT_A_LEAF(new_val, left(n).container_pos);
         new_val = LOCK_NOT_A_LEAF(new_val, right(n).container_pos);
         new_val = occupa_discendenti(&left(n), new_val);
-        new_val = occupa_discendenti(&right(n), new_val);
+        new_val = occupa_discendenti(&right(n), new_val);//MAURO: vediamo se si può eliminare la ricorsione
     }
     else{
         new_val = LOCK_A_LEAF(new_val, left(n).container_pos);
@@ -614,11 +646,9 @@ unsigned long occupa_discendenti(node* n, unsigned long new_val){
  
  */
 bool alloc(node* n){
-    unsigned long old_val;
-    unsigned long new_val;
-    node* current;
-    node* parent;
-    node* root_grappolo;
+    unsigned long old_val, new_val;
+    node *current, *parent, *root_grappolo;
+    
     do{
         new_val = old_val = n->container->nodes;
         if(!IS_ALLOCABLE(new_val, n->container_pos)){
@@ -633,7 +663,7 @@ bool alloc(node* n){
 #ifdef NUMA_AUDIT
             printf("n is %u current is %u and root_grappolo is %u\n", n->pos, current->pos, root_grappolo->pos);
 #endif
-            new_val = LOCK_NOT_A_LEAF(new_val, parent->container_pos);
+            new_val = LOCK_NOT_A_LEAF(new_val, parent->container_pos); //MAURO: <--SETTA TUTTE LE NON FOGLIE COME PROPRIE...in sostanza ogni allocazioned di un grappolo blocca tutto il grappolo?
             current = parent;
             parent = &parent(current);
         }
@@ -646,7 +676,7 @@ bool alloc(node* n){
             //marco n
             new_val = LOCK_NOT_A_LEAF(new_val,n->container_pos);
             //marco i suoi discendenti(se questo nodo ha figli). nota che se ha figli gli ha sicuro nello stesso grappolo visto che non è foglia dal controllo precedente
-            if(left_index(n)<number_of_nodes)
+            //if(left_index(n)<number_of_nodes) //MAURO: lo rifà in occupa discendenti
                 new_val = occupa_discendenti(n, new_val);
         }
     }while(!__sync_bool_compare_and_swap(&n->container->nodes, old_val, new_val));
@@ -745,16 +775,17 @@ unsigned long libera_discendenti(node* n, unsigned long new_val){
  @param n è un nodo generico ma per come facciamo qui la allocazione tutto il suo ramo è marcato.
 */
 void free_node_(node* n){
+    unsigned long old_val, new_val;
+    node *current, *parent;
+    bool exit = false;
+    
 #ifdef NUMA
     tree = overall_trees[n->numa_node];
     containers = overall_containers[n->numa_node];
 #endif
-    bool exit = false;
+
     if(BUNCHROOT(n) != upper_bound)
         marca(BUNCHROOT(n));
-    node* current;
-    node* parent;
-    unsigned long old_val, new_val;
     //LIBERA TUTTO CIO CHE RIGUARDA IL NODO E I SUOI DISCENDENTI ALL INTERNO DEL GRAPPOLO. ATTENZIONE AI GENITORI ALL'INTERNO DEL GRAPPOLO (p.es. se il fratello
     //è marcato; non smarcare il padre). Nota che fino a smarca non mi interessa di upper_bound
     do{

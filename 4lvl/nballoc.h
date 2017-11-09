@@ -16,6 +16,8 @@
 
 #define PAGE_SIZE (4096)
 
+#define DEBUG
+
 typedef struct _node node;
 
 typedef struct node_container_{
@@ -48,7 +50,9 @@ typedef struct _taken_list{
 
 
 extern unsigned mypid;
+extern unsigned myid;
 extern unsigned master;
+extern unsigned int number_of_leaves;
 
 
 void init(unsigned long memory);
@@ -56,6 +60,9 @@ void free_node(node* n);
 node* request_memory(unsigned pages);
 void destroy();
 
+#ifdef DEBUG
+extern unsigned long long *node_allocated, *size_allocated;
+#endif
 
 
 #endif
