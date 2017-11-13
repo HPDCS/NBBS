@@ -640,7 +640,7 @@ bool alloc(node* n){ // non conviene andare con l'index perchè tanto serve il p
 			new_val = occupa_discendenti(n, n_pos, new_val);
 		}
 		
-	}while(!__sync_bool_compare_and_swap(&n->container->nodes, old_val, new_val));
+	}while(new_val!=old_val && !__sync_bool_compare_and_swap(&n->container->nodes, old_val, new_val));
 	//Se n appartiene al grappolo della radice
 	
 	if(n->container->bunch_root == &ROOT){
@@ -703,7 +703,7 @@ bool check_parent(node* n){
 				new_val = LOCK_NOT_A_LEAF(new_val, p_pos);
 			}
 			
-		}while(!__sync_bool_compare_and_swap(&(parent->container->nodes),old_val,new_val));
+		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent->container->nodes),old_val,new_val));
 	}while(BUNCHROOT(parent) != &ROOT);	
 	
 	return true;
@@ -777,7 +777,7 @@ void free_node_(node* n){
 			new_val = UNLOCK_NOT_A_LEAF(new_val, n_pos);//TODO accorpare NOT_A_LEAF in livera_discendenti
 			new_val = libera_discendenti(n,new_val);
 		}
-	}while(!__sync_bool_compare_and_swap(&n->container->nodes,old_val, new_val));
+	}while(new_val!=old_val && !__sync_bool_compare_and_swap(&n->container->nodes,old_val, new_val));
 	
 	if(BUNCHROOT(n) != upper_bound && !exit)
 		smarca_(BUNCHROOT(n));
@@ -805,7 +805,7 @@ void marca(node* n){
 			//	new_val = COALESCE_LEFT(new_val, p_pos);
 			//else
 			//	new_val = COALESCE_RIGHT(new_val, p_pos);
-		}while(!__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
+		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
 		parent = &parent(BUNCHROOT(parent));//parent = &parent(parent); //QUESTO HA RIDOTTO DEL 20 PER CENTO I TEMPI.. WTF!!!! (TODO: solo per richiamare attenzione)
 		p_pos = parent->container_pos;
 	}//while(BUNCHROOT(parent) != upper_bound);
@@ -875,7 +875,7 @@ void smarca_(node* n){
 				new_val = UNLOCK_NOT_A_LEAF(new_val, p_pos);
 			}
 			
-		}while(!__sync_bool_compare_and_swap(&(parent(parent).container->nodes), old_val, new_val));
+		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent(parent).container->nodes), old_val, new_val));
 	
 	}while(BUNCHROOT(parent) != upper_bound && !exit);
 	
