@@ -26,7 +26,7 @@ main.o : main.c
 correctness.o : correctness.c
 	$(CC) $(FLAGS) correctness.c -o correctness.o -c
 
-register.o : nballoc.c nballoc.h timer.h	
+nballoc.o : nballoc.c nballoc.h timer.h	
 	$(CC) $(FLAGS) nballoc.c -o nballoc.o -c
 	
 utils.o : utils.c utils.h
