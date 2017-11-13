@@ -18,10 +18,14 @@
 
 #define DEBUG
 
+typedef unsigned int nbint; 
+
+
 typedef struct _node{
+    volatile nbint val; //per i bit etc;
+    char pad[48];
     unsigned int mem_start; //spiazzamento all'interno dell'overall_memory
     unsigned int mem_size;
-    volatile unsigned int val; //per i bit etc;
     unsigned int pos; //posizione all'interno dell'array "tree"
 } node;
 

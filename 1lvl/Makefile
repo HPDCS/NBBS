@@ -1,5 +1,5 @@
 CC=gcc
-FLAGS=-g -Wall -lm
+FLAGS=-O3  -g -Wall -lm
 #INCLUDE= -I include/ -I mm/ -I core/ -Istatistics/
 EXECUTABLE=test
 
@@ -26,7 +26,7 @@ main.o : main.c
 correctness.o : correctness.c
 	$(CC) $(FLAGS) correctness.c -o correctness.o -c
 
-register.o : nballoc.c nballoc.h timer.h	
+nballoc.o : nballoc.c nballoc.h timer.h	
 	$(CC) $(FLAGS) nballoc.c -o nballoc.o -c
 	
 utils.o : utils.c utils.h

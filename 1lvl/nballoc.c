@@ -20,12 +20,14 @@ Bitmap for each node:
 
 */
 
-#define FREE_BLOCK                  ( 0x0UL  )
-#define MASK_OCCUPY_RIGHT           ( 0x1UL  )
-#define MASK_OCCUPY_LEFT            ( 0x2UL  )
-#define MASK_RIGHT_COALESCE         ( 0x4UL  )
-#define MASK_LEFT_COALESCE          ( 0x8UL  )
-#define OCCUPY                      ( 0x10UL )
+
+
+#define FREE_BLOCK                  ( 0x0U  )
+#define MASK_OCCUPY_RIGHT           ( 0x1U  )
+#define MASK_OCCUPY_LEFT            ( 0x2U  )
+#define MASK_RIGHT_COALESCE         ( 0x4U  )
+#define MASK_LEFT_COALESCE          ( 0x8U  )
+#define OCCUPY                      ( 0x10U )
 
 #define MASK_CLEAN_LEFT_COALESCE    (~MASK_LEFT_COALESCE)
 #define MASK_CLEAN_RIGHT_COALESCE   (~MASK_RIGHT_COALESCE)
@@ -34,13 +36,25 @@ Bitmap for each node:
 #define MASK_CLEAN_OCCUPIED_RIGHT   (~MASK_OCCUPY_RIGHT)
 
 #define ROOT            (tree[1])
-#define left_index(n)   (((n)->pos)*2)
-#define right_index(n)  (left_index(n)+1)
-#define parent_index(n) (((n)->pos)/2)
-#define left(n)         (tree[left_index(n)  ])
-#define right(n)        (tree[right_index(n) ])
-#define parent(n)       (tree[parent_index(n)])
+
+#define lchild_idx_by_ptr(n)   (((n)->pos)*2)
+#define rchild_idx_by_ptr(n)   (lchild_idx_by_ptr(n)+1)
+#define parent_idx_by_ptr(n)   (((n)->pos)/2)
+
+#define lchild_idx_by_idx(n)   (n << 1)
+#define rchild_idx_by_idx(n)   (lchild_idx_by_idx(n)+1)
+#define parent_idx_by_idx(n)   (n >> 1)
+
+#define lchild_ptr_by_ptr(n)   (tree[lchild_idx_by_ptr(n)])
+#define rchild_ptr_by_ptr(n)   (tree[rchild_idx_by_ptr(n)])
+#define parent_ptr_by_ptr(n)   (tree[parent_idx_by_ptr(n)])
+
+#define lchild_ptr_by_idx(n)   (tree[lchild_idx_by_idx(n)])
+#define rchild_ptr_by_idx(n)   (tree[rchild_idx_by_idx(n)])
+#define parent_ptr_by_idx(n)   (tree[parent_idx_by_idx(n)])
+
 #define level(n)        ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) ))
+#define level_by_idx(n) ( (overall_height) - (log2_(n)))
 
 
 /***************************************************
@@ -48,25 +62,28 @@ Bitmap for each node:
 ***************************************************/
 
 node* tree; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
+node* real_tree; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 unsigned long overall_memory_size;
 unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 unsigned int number_of_leaves; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 void* overall_memory;
-node* trying;
-unsigned int failed_at_node;
+//node* trying;
+//node* upper_bound;
+//unsigned int failed_at_node;
 unsigned int overall_height;
-node* upper_bound;
 unsigned int max_level;
 
 extern int number_of_processes;
 extern taken_list* takenn;
 
 static void init_tree(unsigned long number_of_nodes);
-static bool check_parent(node* n);
-static bool alloc(node* n);
-static void smarca_(node* n);
-static void smarca(node* n);
-static void free_node_(node* n);
+static unsigned int check_parent(node* n);
+static unsigned int alloc(node* n);
+static unsigned int alloc2(unsigned int);
+static void smarca(node* n, node* upper_bound);
+//static void external_smarca(node* n);
+static void internal_free_node(node* n, node* upper_bound);
+static void internal_free_node2(unsigned int n, unsigned int upper_bound);
 
 #ifdef DEBUG
 unsigned long long *node_allocated, *size_allocated;
@@ -104,10 +121,12 @@ void init(unsigned long levels){
     if(overall_memory == MAP_FAILED)
         abort();
         
-    tree = mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    real_tree = mmap(NULL,64+(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     
-    if(tree == MAP_FAILED)
+    if(real_tree == MAP_FAILED)
         abort();
+
+    tree = (typeof(tree)) (( ( (unsigned long long) real_tree) + 64 ) & ( ~ 0x40ULL ) );
     
     init_tree(number_of_nodes);
     
@@ -151,14 +170,14 @@ static void init_tree(unsigned long number_of_nodes){
     for(i=2;i<=number_of_nodes;i++){
         
         tree[i].pos = i;
-        node parent = parent(&tree[i]);
-        tree[i].val = 0;
+        node parent = parent_ptr_by_idx(i);
+        tree[i].val = (nbint) 0;
         tree[i].mem_size = parent.mem_size / 2;
         
-        if(left_index(&parent)==i)
-            tree[i].mem_start = parent.mem_start;
-        else
-            tree[i].mem_start = parent.mem_start + tree[i].mem_size;
+       //if(lchild_idx_by_ptr(&parent)==i)
+       //    tree[i].mem_start = parent.mem_start;
+       //else
+       //    tree[i].mem_start = parent.mem_start + tree[i].mem_size;
 	}
 }
 
@@ -185,7 +204,7 @@ void destroy(){
  
  */
 node* request_memory(unsigned byte){
-    unsigned int starting_node, last_node, actual, started_at;
+    unsigned int starting_node, last_node, actual, started_at, failed_at_node;
     
     bool restarted = false;
 
@@ -198,7 +217,8 @@ node* request_memory(unsigned byte){
         byte = MIN_ALLOCABLE_BYTES;
 
     starting_node  = overall_memory_size / byte;            //first node for this level
-    last_node      = left_index(&tree[starting_node])-1;    //last node for this level
+    //last_node      = lchild_idx_by_ptr(&tree[starting_node])-1;    //last node for this level
+    last_node      = lchild_idx_by_idx(starting_node)-1;    //last node for this level
 
 //    actual = myid;                   //actual è il posto in cui iniziare a cercare
 //    if(last_node - starting_node != 0)
@@ -212,7 +232,8 @@ node* request_memory(unsigned byte){
     
     //quando faccio un giro intero ritorno NULL
     do{
-        if(alloc(&tree[actual]) == true){
+        failed_at_node = alloc2(actual);
+        if(failed_at_node == 0){
 #ifdef DEBUG
 			__sync_fetch_and_add(node_allocated,1);
 			__sync_fetch_and_add(size_allocated,byte);
@@ -224,7 +245,8 @@ node* request_memory(unsigned byte){
         //}
         
         //Questo serve per evitare tutto il sottoalbero in cui ho fallito
-        actual = (failed_at_node + 1) * (1 << (level(&tree[actual]) - level(& tree[failed_at_node])));
+        //actual = (failed_at_node + 1) * (1 << (level(&tree[actual]) - level(& tree[failed_at_node])));
+        actual = (failed_at_node + 1) * (1 << (level_by_idx(actual) - level_by_idx(failed_at_node)));
         
         if(actual > last_node){ //se ho sforato riparto dal primo utile, se il primo era quello da cui avevo iniziato esco al controllo del while
             actual = starting_node;
@@ -238,23 +260,28 @@ node* request_memory(unsigned byte){
 
 
 /*
- Questa funzione si preoccupa di marcare il bit relativo al sottoalbero del blocco che ho allocato in tutti i suoi antenati.
- Questa funziona ritorna true se e solo se riesce a marcare fino alla radice. La funzione fallisce se e solo se si imbatte in un nodo occupato
- (riconoscibile dal value che contiene 0X10). La funzione si preoccupa inoltre di cancellare l'eventuale bit di coalescing.
- Side effect: se fallisce la variabile globale failed_at_node assume il valore del nodo dove la ricorsione è fallita
+
+ This routine marks the occupancy bit of the respective child for each ancestor of the allocated node.
+ This routine returns true if it succeeds to mark every bit from the allocated node to the root, otherwise it returns false.
+ Moreover, it resets the coalescing bit.
+
+ Side effect: if it fails the global variable to the invoking thread 'failed_at_node' assumes the value of the first node where the marking has failed.
  @param n: nodo da cui iniziare la risalita (che è già marcato totalmente o parzialmente)
- @return true se è tutto corretto fino alla radice, false altrimenti
+ @return: true if the block has been allocated, otherwise false.
  
  */
-static bool check_parent(node* n){
-    unsigned long actual_value;
-    unsigned long new_value;
+static unsigned int check_parent(node* n){
+    unsigned int failed_at_node;
+    nbint actual_value;
+    nbint new_value;
+    bool is_left_child;
     node *actual = n, *son = n;//&parent(actual);
     
     while(actual != &ROOT){ //  && level(actual) <= max_level --secondo me si può fermare appena vede un fratello a 1
 		son = actual;
-		actual = &parent(actual);
-    
+		actual = &parent_ptr_by_ptr(actual);
+        is_left_child = &lchild_ptr_by_ptr(actual) == son;
+
 		do{
 			actual_value = actual->val;
 			
@@ -262,26 +289,28 @@ static bool check_parent(node* n){
 			if((actual_value & OCCUPY)!=0){
 				failed_at_node = actual->pos;
 				//ripristino dal nodo dove sono partito al nodo dove sono arrivato (da trying ad n)
-				upper_bound = son;
-				free_node_(trying);
-				return false;
+				//upper_bound = son;
+				internal_free_node(n, son);
+				return failed_at_node;
 			}
 			
 			new_value = actual_value;
 			
-			if(&left(actual) == son){ //n è sinistro
-				new_value = (new_value & MASK_CLEAN_LEFT_COALESCE) | MASK_OCCUPY_LEFT;
-				//new_value = new_value | MASK_OCCUPY_LEFT;
-			}
-			else{
-				new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
-				//new_value = new_value | MASK_OCCUPY_RIGHT;
-			}
+			//if(is_left_child){ //n è sinistro
+			//	new_value = (new_value & MASK_CLEAN_LEFT_COALESCE) | MASK_OCCUPY_LEFT;
+			//	//new_value = new_value | MASK_OCCUPY_LEFT;
+			//}
+			//else{
+			//	new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
+			//	//new_value = new_value | MASK_OCCUPY_RIGHT;
+			//}
+
+            new_value = ( new_value & ( MASK_CLEAN_RIGHT_COALESCE << is_left_child ) ) | ( MASK_OCCUPY_RIGHT << is_left_child );
 			//TODO: se new_val=actual_val non serve fare la CAS
 		}while(new_value != actual_value && //CONTROLLA!!!
 				!__sync_bool_compare_and_swap(&actual->val, actual_value, new_value));
     }
-    return true;
+    return 0;
 }
 
 
@@ -293,20 +322,25 @@ static bool check_parent(node* n){
  @return true se l'allocazione riesce, false altrimenti
  
  */
-static bool alloc(node* n){
-    unsigned int actual;
+static unsigned int alloc(node* n){
+    nbint actual;
     //actual è il valore dei bit che sono nel nodo prima che ci lavoro
     actual = n->val;
-    trying = n;
+    //trying = n;
     
     //il nodo è stato parallelamente occupato. Parzialmente o totalmente
     if(actual != 0 || !__sync_bool_compare_and_swap(&n->val,0,OCCUPY_BLOCK)){
-        failed_at_node = n->pos;
-        return false;
+        //failed_at_node = n->pos;
+        return n->pos;
     }
     
-    //ho allocato tutto l'albero oppure sono riuscito a risalire fino alla radice
-    return (n==&ROOT || check_parent(n));//||level(n) > max_level
+    //if(n==&ROOT)
+    //    return 0;
+    
+    return check_parent(n);
+
+//   //ho allocato tutto l'albero oppure sono riuscito a risalire fino alla radice
+//    return (n==&ROOT || check_parent(n) == 0);//||level(n) > max_level
     
 //    if(n==&ROOT || check_parent(n)){
 //        return true;
@@ -317,40 +351,105 @@ static bool alloc(node* n){
 }
 
 
+static unsigned int alloc2(unsigned int n){
+    nbint actual_value;
+    unsigned int failed_at_node;
+    nbint new_value;
+    bool is_left_child;
+    unsigned int actual = n, son = n;//&parent(actual);
+    
+    //actual è il valore dei bit che sono nel nodo prima che ci lavoro
+    actual_value = tree[n].val;
+    //trying = n;
+    
+    //il nodo è stato parallelamente occupato. Parzialmente o totalmente
+    if(actual_value != 0 || !__sync_bool_compare_and_swap(&(tree[n].val),0,OCCUPY_BLOCK)){
+        //failed_at_node = n->pos;
+        return n;
+    }
+        
+    while(actual != 1){ //  && level(actual) <= max_level --secondo me si può fermare appena vede un fratello a 1
+        son = actual;
+        actual = parent_idx_by_idx(actual);
+        is_left_child = lchild_idx_by_idx(actual) == son;
+
+        do{
+            actual_value = tree[actual].val;
+            
+            //Se l'AND con OCCUPY fallisce vuol dire che qualcuno lo ha occupato
+            if((actual_value & OCCUPY)!=0){
+                failed_at_node = actual;
+                //ripristino dal nodo dove sono partito al nodo dove sono arrivato (da trying ad n)
+                //upper_bound = son;
+                internal_free_node2(n, son);
+                return failed_at_node;
+            }
+            
+            new_value = actual_value;
+            
+            //if(is_left_child){ //n è sinistro
+            //  new_value = (new_value & MASK_CLEAN_LEFT_COALESCE) | MASK_OCCUPY_LEFT;
+            //  //new_value = new_value | MASK_OCCUPY_LEFT;
+            //}
+            //else{
+            //  new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
+            //  //new_value = new_value | MASK_OCCUPY_RIGHT;
+            //}
+
+            new_value = ( new_value & ( MASK_CLEAN_RIGHT_COALESCE << is_left_child ) ) | ( MASK_OCCUPY_RIGHT << is_left_child );
+            //TODO: se new_val=actual_val non serve fare la CAS
+        }while(new_value != actual_value && //CONTROLLA!!!
+                !__sync_bool_compare_and_swap(&(tree[actual].val), actual_value, new_value));
+    }
+    return 0;
+}
+
+
+
 
 /*
  Questa funziona leva il bit di coalesce e libera il sottoramo (fino all'upper bound) ove necessario. Nota che potrebbe terminare lasciando alcuni bit di coalescing posti ad 1. Per i dettagli si guardi la documentazione.
  @param n: il figlio del primo nodo da smarcare! (BISOGNA SMARCARE DAL PADRE)
  @param upper_bound; l'ultimo nodo da smarcare
  */
-static void smarca_(node* n){
-    unsigned int actual_value;
-    unsigned int new_val;
+static void smarca(node* n, node* upper_bound){
+    nbint actual_value;
+    nbint new_val;
+    bool is_left_child;
     node *actual = n, *son = n;//&parent(n);
     
     do{
-		actual = &parent(actual);
+		actual = &parent_ptr_by_ptr(actual);
+        is_left_child = &lchild_ptr_by_ptr(actual) == son;
     
 		do{
 			actual_value = actual->val;
 			new_val = actual_value;
 			//libero il rispettivo sottoramo su new val
-			if( (&left(actual)==son && (actual_value & MASK_LEFT_COALESCE)==0) ||
-				(&right(actual)==son && (actual_value & MASK_RIGHT_COALESCE)==0)
-				){ //if n è sinistro AND b1=0 || if n è destro AND b1=0...già riallocato
+			
+            //if( (&left(actual)==son && (actual_value & MASK_LEFT_COALESCE)==0) ||
+			//	(&right(actual)==son && (actual_value & MASK_RIGHT_COALESCE)==0)
+			//	)
+            
+            if( (actual_value & (MASK_RIGHT_COALESCE << is_left_child) ) == 0  )
+
+            { //if n è sinistro AND b1=0 || if n è destro AND b1=0...già riallocato
 				return;
 			}
 			
-			if (&left(actual)==son)
-				new_val = new_val & MASK_CLEAN_LEFT_COALESCE & MASK_CLEAN_OCCUPIED_LEFT;
-			else
-				new_val = new_val & MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT;
+			//if (&left(actual)==son)
+			//	new_val = new_val & MASK_CLEAN_LEFT_COALESCE & MASK_CLEAN_OCCUPIED_LEFT;
+			//else
+				new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE | MASK_CLEAN_OCCUPIED_RIGHT) << is_left_child);
 				
 		} while (!__sync_bool_compare_and_swap(&actual->val,actual_value,new_val));
 
 	}while(	(actual!=upper_bound) &&
-			!(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) &&
-			!(&right(actual)==n && (actual->val & MASK_OCCUPY_LEFT)!=0) );
+			//!(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) &&
+			//!(&right(actual)==n && (actual->val & MASK_OCCUPY_LEFT)!=0) 
+            !( (actual->val & (MASK_OCCUPY_LEFT >> is_left_child) ) != 0 )  
+
+            );
 			//  || level(actual) <= max_level
 			
 	
@@ -365,12 +464,40 @@ static void smarca_(node* n){
 //        smarca_(actual);  
 }
 
+static void smarca2(unsigned int n, unsigned int upper_bound){
+    nbint actual_value;
+    nbint new_val;
+    bool is_left_child;
+    unsigned int actual = n, son = n;//&parent(n);
+    
+    do{
+        actual = parent_idx_by_idx(actual);
+        is_left_child = lchild_idx_by_idx(actual) == son;
+    
+        do{
+            actual_value = tree[actual].val;
+            new_val = actual_value;
+            
+            if( (actual_value & (MASK_RIGHT_COALESCE << is_left_child) ) == 0  )
+                return;
+
+            new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE | MASK_CLEAN_OCCUPIED_RIGHT) << is_left_child);
+                
+        } while (!__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
+
+    }while( (actual!=upper_bound) &&
+            !( (new_val & (MASK_OCCUPY_LEFT >> is_left_child) ) != 0 )  
+
+            );
+
+}
+
 
 // TODO RIMUOVERE???
-static void smarca(node* n){
-    upper_bound = &ROOT; 
-    smarca_(n);
-}
+//static void external_smarca(node* n){
+//    upper_bound = &ROOT; 
+//    smarca(n);
+//}
 
 
 //MARK: FREE
@@ -381,21 +508,21 @@ static void smarca(node* n){
  @param n: nodo da liberare
  @param upper_bound: l'ultimo nodo da liberare
  */
-static void free_node_(node* n){
-    unsigned int actual_value;
-    unsigned int new_value;
+static void internal_free_node(node* n, node* upper_bound){
+    nbint actual_value;
+    nbint new_value;
 
     if( n->val != OCCUPY_BLOCK ){
         printf("err: il blocco non è occupato\n");
         return;
     }
     
-    node* actual = &parent(n);
+    node* actual = &parent_ptr_by_ptr(n);
     node* runner = n;
     
     while(runner!=upper_bound){ //  && level(runner) <=max_level
 		actual_value = actual->val; //CONTROLLARE
-        if(&left(actual)==runner)
+        if(&lchild_ptr_by_ptr(actual)==runner)
 			__sync_fetch_and_or(&actual->val, actual_value | MASK_LEFT_COALESCE);
 		else
 			__sync_fetch_and_or(&actual->val, actual_value | MASK_RIGHT_COALESCE);
@@ -409,19 +536,56 @@ static void free_node_(node* n){
 //        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value)); // TODO use fetch_&_or
 
         runner = actual;
-        actual = &parent(actual);
+        actual = &parent_ptr_by_ptr(actual);
     }
     
     n->val = 0; // TODO aggiungi barriera --- secondo me "__sync_lock_release" va bene
     //print_in_ampiezza();
     if(n!=upper_bound)
-        smarca_(n);
+        smarca(n, upper_bound);
+}
+
+
+static void internal_free_node2(unsigned int n, unsigned int upper_bound){
+    nbint actual_value;
+    nbint new_value;
+    unsigned int actual;
+    unsigned int runner;
+
+    if( tree[n].val != OCCUPY_BLOCK ){
+        printf("err: il blocco non è occupato\n");
+        return;
+    }
+    
+    actual = parent_idx_by_idx(n);
+    runner = n;
+    
+    while(runner!=upper_bound){ //  && level(runner) <=max_level
+        actual_value = tree[actual].val; //CONTROLLARE
+        
+        __sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;
+        
+//        do{
+//            actual_value = actual->val;
+//            if(&left(actual)==runner)
+//                new_value = actual_value | MASK_LEFT_COALESCE;
+//            else
+//                new_value = actual_value | MASK_RIGHT_COALESCE;
+//        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value)); // TODO use fetch_&_or
+
+        runner = actual;
+        actual = parent_idx_by_idx(actual);
+    }
+    
+    tree[n].val = 0; // TODO aggiungi barriera --- secondo me "__sync_lock_release" va bene
+    //print_in_ampiezza();
+    if(n!=upper_bound)
+        smarca2(n, upper_bound);
 }
 
 
 void free_node(node* n){
-    upper_bound = &ROOT;
-    free_node_(n);
+    internal_free_node2(n->pos, 1);
 #ifdef DEBUG
 	__sync_fetch_and_add(node_allocated,-1);
 	__sync_fetch_and_add(size_allocated,-(n->mem_size));
