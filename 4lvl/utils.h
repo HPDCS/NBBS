@@ -3,6 +3,6 @@
 
 unsigned int rand_lim(unsigned int limit);
 unsigned int upper_power_of_two(unsigned int v);
-unsigned int log2_ (unsigned int value);
+unsigned int log2_ (unsigned long long value);
 
 #endif

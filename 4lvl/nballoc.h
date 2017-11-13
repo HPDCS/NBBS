@@ -6,10 +6,10 @@
 ****************************************************/
 
 #ifndef MIN_ALLOCABLE_BYTES
-#define MIN_ALLOCABLE_BYTES 8 //(2KB) numero minimo di byte allocabili
+#define MIN_ALLOCABLE_BYTES 8ULL //(2KB) numero minimo di byte allocabili
 #endif
 #ifndef MAX_ALLOCABLE_BYTE
-#define MAX_ALLOCABLE_BYTE  16384 //(16KB)
+#define MAX_ALLOCABLE_BYTE  16384ULL //(16KB)
 #endif
 
 #define SERBATOIO_DIM (16*8192)
@@ -23,6 +23,7 @@ typedef struct _node node;
 typedef struct node_container_{
 	unsigned long long nodes;
 	node* bunch_root;
+	//char[48] pads;
 }node_container;
 
 struct _node{

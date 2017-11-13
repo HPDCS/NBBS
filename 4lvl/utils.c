@@ -31,12 +31,12 @@ const unsigned tab64[64] = {
     56, 45, 25, 31, 35, 16,  9, 12,
     44, 24, 15,  8, 23,  7,  6,  5};
 
-unsigned log2_ (unsigned long value){
+unsigned log2_ (unsigned long long value){
     value |= value >> 1;
     value |= value >> 2;
     value |= value >> 4;
     value |= value >> 8;
     value |= value >> 16;
     value |= value >> 32;
-    return tab64[((unsigned long)((value - (value >> 1))*0x07EDD5E59A4E28C2)) >> 58];
+    return tab64[((unsigned long long)((value - (value >> 1))*0x07EDD5E59A4E28C2)) >> 58];
 }

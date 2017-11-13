@@ -1,5 +1,5 @@
 CC=gcc
-FLAGS=-g -Wall -lm
+FLAGS=-O3 -g -Wall -lm
 #INCLUDE= -I include/ -I mm/ -I core/ -Istatistics/
 EXECUTABLE=test
 
