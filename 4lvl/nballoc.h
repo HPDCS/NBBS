@@ -23,7 +23,7 @@ typedef struct _node node;
 typedef struct node_container_{
 	unsigned long long nodes;
 	node* bunch_root;
-	//char[48] pads;
+	char pad[48];
 }node_container;
 
 struct _node{

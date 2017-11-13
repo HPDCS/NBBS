@@ -83,8 +83,16 @@ Bitmap for container:
 #define CHECK_BROTHER(parent, current, actual_value) \
 		{ \
 			if(\
-			((&left(parent)) ==current && (!IS_ALLOCABLE(actual_value,(&right(parent))->container_pos))) || \
-			((&right(parent))==current && (!IS_ALLOCABLE(actual_value, (&left(parent))->container_pos)))\
+			((&left(parent)) == current && (!IS_ALLOCABLE(actual_value,(&right(parent))->container_pos))) || \
+			((&right(parent))== current && (!IS_ALLOCABLE(actual_value, (&left(parent))->container_pos)))\
+			){ exit=true; break;}\
+		}
+
+#define CHECK_BROTHER_OCCUPIED(p_pos, actual_value) \
+		{ \
+			if(\
+			((is_left_by_idx(p_pos)) && (!IS_ALLOCABLE(actual_value, (rchild_idx_by_idx(p_pos))))) || \
+			((is_right_by_idx(p_pos)) && (!IS_ALLOCABLE(actual_value,(lchild_idx_by_idx(p_pos)))))\
 			){ exit=true; break;}\
 		}
 
@@ -628,7 +636,7 @@ bool alloc(node* n){ // non conviene andare con l'index perchè tanto serve il p
 		//marco n ed i suoi figli se n non è una foglia
 		else{
 			//marco n
-			new_val = LOCK_NOT_A_LEAF(new_val,n_pos);
+			new_val = LOCK_NOT_A_LEAF(new_val,n_pos); //TODO: accorpa nella riga sotto
 			new_val = occupa_discendenti(n, n_pos, new_val);
 		}
 		
@@ -658,87 +666,32 @@ bool alloc(node* n){ // non conviene andare con l'index perchè tanto serve il p
  
  */
 bool check_parent(node* n){
-	unsigned long long new_val, old_val, tmp_val, p_pos, n_idx;
-	node* parent = &parent(n);//canc
-	node* root_grappolo = parent->container->bunch_root;
-	
-	n_idx = n->pos;
-	upper_bound = n; //TODO//per costruione upper bound sarà quindi la radice dell'ultimo bunch da liberare in caso di fallimento. E' quello precedente al bunch dove lavoriamo adesso perchè se adesso falliamo, non apporteremo le modifiche
-	
-	
-	do{
-		//parent = &parent(n);
-		p_pos = parent->container_pos;
-		new_val = old_val = parent->container->nodes;
-		
-		if(IS_OCCUPIED(parent->container->nodes, p_pos)){
-			failed_at_node = parent->pos;
-			return false;
-		}
-		
-		//CON QUESTA PEGGIORA
-		//new_val = 	(( is_left_by_idx(n_idx))&( OCCUPY_LEFT( CLEAN_LEFT_COALESCE(new_val, parent->container_pos), parent->container_pos))) |
-		//			((!is_left_by_idx(n_idx))&(OCCUPY_RIGHT(CLEAN_RIGHT_COALESCE(new_val, parent->container_pos), parent->container_pos)));
-				
-		if(is_left_by_idx(n_idx)/*&left(parent)==n*/){
-			new_val = CLEAN_LEFT_COALESCE(new_val, p_pos);
-			new_val = OCCUPY_LEFT(new_val, p_pos);
-		}else{
-			new_val = CLEAN_RIGHT_COALESCE(new_val, p_pos);
-			new_val = OCCUPY_RIGHT(new_val, p_pos);
-		}
-		
-		//new_val = LOCK_NOT_A_LEAF(new_val, parent(parent).container_pos);
-		//parent = &parent(parent);
-		//new_val = LOCK_NOT_A_LEAF(new_val, parent(parent).container_pos);
-		//new_val = LOCK_NOT_A_LEAF(new_val, root_grappolo->container_pos);
-				
-		while((p_pos/=2) > 0){
-			new_val = LOCK_NOT_A_LEAF(new_val, p_pos);
-		}
-		
-	}while(!__sync_bool_compare_and_swap(&(parent(n).container->nodes),old_val,new_val));
-	
-	if(root_grappolo==&ROOT)
-		return true;
-	
-	return check_parent(root_grappolo);
-}
-
-
-bool check_parent_xxx(node* n){
-	unsigned long long new_val, old_val, tmp_val, n_pos;//, n_idx;
-	node* parent = n;//&parent(n);//canc
-	//node* root_grappolo = parent->container->bunch_root;
-	
-	//n_idx = n->pos;
-	//upper_bound = n; //TODO//per costruione upper bound sarà quindi la radice dell'ultimo bunch da liberare in caso di fallimento. E' quello precedente al bunch dove lavoriamo adesso perchè se adesso falliamo, non apporteremo le modifiche
-	
+	unsigned long long new_val, old_val, p_pos;
+	node* parent = n;
 	do{
 		upper_bound = parent;
-		parent = &parent(parent->container->bunch_root);
-		n_pos = parent->container_pos;
-			
+		parent = &parent(BUNCHROOT(parent));
+		
 		do{
 			//parent = &parent(n);
-			//n_pos = parent->container_pos;
+			p_pos = parent->container_pos;
 			new_val = old_val = parent->container->nodes;
 			
-			if(IS_OCCUPIED(new_val, n_pos)){
+			if(IS_OCCUPIED(parent->container->nodes, p_pos)){
 				failed_at_node = parent->pos;
 				return false;
 			}
 			
 			//CON QUESTA PEGGIORA
-			//new_val = 	(( is_left_by_idx(n_idx))&( OCCUPY_LEFT( CLEAN_LEFT_COALESCE(new_val, parent->container_pos), parent->container_pos))) |
+			//new_val = (( is_left_by_idx(n_idx))&( OCCUPY_LEFT( CLEAN_LEFT_COALESCE(new_val, parent->container_pos), parent->container_pos))) |
 			//			((!is_left_by_idx(n_idx))&(OCCUPY_RIGHT(CLEAN_RIGHT_COALESCE(new_val, parent->container_pos), parent->container_pos)));
 					
 			if(is_left_by_idx(n->pos)/*&left(parent)==n*/){
-				new_val = CLEAN_LEFT_COALESCE(new_val, n_pos);
-				new_val = OCCUPY_LEFT(new_val, n_pos);
+				new_val = CLEAN_LEFT_COALESCE(new_val, p_pos);
+				new_val = OCCUPY_LEFT(new_val, p_pos);
 			}else{
-				new_val = CLEAN_RIGHT_COALESCE(new_val, n_pos);
-				new_val = OCCUPY_RIGHT(new_val, n_pos);
+				new_val = CLEAN_RIGHT_COALESCE(new_val, p_pos);
+				new_val = OCCUPY_RIGHT(new_val, p_pos);
 			}
 			
 			//new_val = LOCK_NOT_A_LEAF(new_val, parent(parent).container_pos);
@@ -746,19 +699,15 @@ bool check_parent_xxx(node* n){
 			//new_val = LOCK_NOT_A_LEAF(new_val, parent(parent).container_pos);
 			//new_val = LOCK_NOT_A_LEAF(new_val, root_grappolo->container_pos);
 					
-			while((n_pos/=2) > 0){
-				new_val = LOCK_NOT_A_LEAF(new_val, n_pos);
+			while((p_pos/=2) > 0){
+				new_val = LOCK_NOT_A_LEAF(new_val, p_pos);
 			}
 			
-		}while(!__sync_bool_compare_and_swap(&(parent(n).container->nodes),old_val,new_val));
-	}while(parent->container->bunch_root != &ROOT);	
-		
-	//if(root_grappolo==&ROOT)
-	//	return true;
+		}while(!__sync_bool_compare_and_swap(&(parent->container->nodes),old_val,new_val));
+	}while(BUNCHROOT(parent) != &ROOT);	
 	
-	//return check_parent(root_grappolo);
+	return true;
 }
-
 
 //MARK: FREE
 
@@ -769,9 +718,7 @@ bool check_parent_xxx(node* n){
  @param new_val: sarebbe  n->container->nodes da modificare
  
  */
-unsigned long long libera_discendenti(node* n, unsigned long long new_val){
-	
-	
+unsigned long long libera_discendenti(node* n, unsigned long long new_val){ //TODO
 	//se l'ultimo grappolo non ha tutti i nodi che deve avere (tipo ha solo due livelli). QUesto quando andiamo a regime non dovrebbe succedere perchè questa situazione la evitiamo (inutile avere un grappolo monco.. il numero di cas è lo stesso
 	if(left_index(n)>=number_of_nodes)
 		return new_val;
@@ -800,8 +747,7 @@ unsigned long long libera_discendenti(node* n, unsigned long long new_val){
  @param n è un nodo generico ma per come facciamo qui la allocazione tutto il suo ramo è marcato.
 */
 void free_node_(node* n){
-	unsigned long long old_val, new_val;
-	node *current, *parent;
+	unsigned long long old_val, new_val, p_pos, n_pos;
 	bool exit = false;
 	
 #ifdef NUMA
@@ -809,43 +755,30 @@ void free_node_(node* n){
 	containers = overall_containers[n->numa_node];
 #endif
 	
-#ifdef DEBUG
-		if(level(n) != overall_height){
-			printf("Sto de-allocando una non-foglia\n");
-			abort();
-		}
-#endif
-
-	if(BUNCHROOT(n) != upper_bound)
-		marca(BUNCHROOT(n));
-	//LIBERA TUTTO CIO CHE RIGUARDA IL NODO E I SUOI DISCENDENTI ALL INTERNO DEL GRAPPOLO. ATTENZIONE AI GENITORI ALL'INTERNO DEL GRAPPOLO (p.es. se il fratello
-	//è marcato; non smarcare il padre). Nota che fino a smarca non mi interessa di upper_bound
+	//if(BUNCHROOT(n) != upper_bound)//TODO: sistemare marca per togliere il controllo qui
+	marca(BUNCHROOT(n));
+	//LIBERA TUTTO CIO CHE RIGUARDA IL NODO E I SUOI DISCENDENTI ALL INTERNO DEL GRAPPOLO. ATTENZIONE AI GENITORI ALL'INTERNO DEL GRAPPOLO (p.es. se il fratello è marcato; non smarcare il padre). Nota che fino a smarca non mi interessa di upper_bound
 	do{
-		exit=false;
-		current = n;
-		parent = &parent(current);
-
-		old_val = new_val = current->container->nodes;
-		while(current!=BUNCHROOT(n)){
-			//questo termina il ciclo se il fratello è occupato e setta exit = true
-			CHECK_BROTHER(parent,current, new_val);
-			
-			//qua ci arriviamo solo se il fratello è libero
-			new_val = UNLOCK_NOT_A_LEAF(new_val, parent->container_pos);
-			current = parent;
-			parent = &parent(current);
+		exit = false;
+		n_pos = p_pos = n->container_pos; 
+		old_val = new_val = n->container->nodes;
+		
+		while((p_pos/=2) != 0){
+			CHECK_BROTHER_OCCUPIED(p_pos,new_val); //questo termina il ciclo se il fratello è occupato e setta exit = true
+			new_val = UNLOCK_NOT_A_LEAF(new_val, p_pos);
 		}
-		if(!IS_LEAF(n) && left_index(n)<=number_of_nodes){ //se non è foglia (nel senso che non è tra le posizione 8-15 e se i figli esistono.
+	
+		//if(!IS_LEAF(n)/* && (lchild_idx_by_ptr(n) <= number_of_nodes)*/){ //se non è foglia (nel senso che non è tra le posizione 8-15 e se i figli esistono.
+		//	new_val = libera_discendenti(n,new_val);
+		//}
+		if(IS_LEAF(n))
+			new_val = UNLOCK_A_LEAF(new_val, n_pos);
+		else{
+			new_val = UNLOCK_NOT_A_LEAF(new_val, n_pos);//TODO accorpare NOT_A_LEAF in livera_discendenti
 			new_val = libera_discendenti(n,new_val);
 		}
-		if(IS_LEAF(n))
-			new_val = UNLOCK_A_LEAF(new_val, n->container_pos);
-		else
-			new_val = UNLOCK_NOT_A_LEAF(new_val, n->container_pos);
-		
 	}while(!__sync_bool_compare_and_swap(&n->container->nodes,old_val, new_val));
-	//find_the_bug(2);
-
+	
 	if(BUNCHROOT(n) != upper_bound && !exit)
 		smarca_(BUNCHROOT(n));
 }
@@ -858,41 +791,27 @@ void free_node_(node* n){
  
  */
 void marca(node* n){
-	node* parent = &parent(n);
-	unsigned long long old_val,new_val;
+	node* parent = n;// &parent(n);
+	unsigned long long old_val, new_val, p_pos;
 	
-#ifdef DEBUG
-	node *parent_fix = &parent(n);
-#endif
-	do{
-		new_val = old_val = parent->container->nodes;
-		if (&(left(parent))==n){
-			new_val = COALESCE_LEFT(new_val, parent->container_pos);
-		}
-		else
-			new_val = COALESCE_RIGHT(new_val, parent->container_pos);
-			
-#ifdef DEBUG
-		if(new_val & MASK_NODES_OCCUPIED){
-			printf("---Marca: Sto scrivendo 1 in un nodo non-foglia\n");
-			printf("Sono al livello %d, indice container(%u)\n", level(parent_fix),parent_fix->container_pos);
-			printf("scrivendo il valore %llx al posto di %llx in un nodo non-foglia\n", new_val, old_val);
-			printf("scrivendo il valore %llx al posto di %llx in un nodo non-foglia\n", BITMASK_LEAF(new_val, parent_fix->container_pos), BITMASK_LEAF(old_val, parent_fix->container_pos));
-			abort();
-		}
-		if(BITMASK_LEAF(new_val, parent_fix->container_pos) & 0x10ULL){
-			printf("Marca: Sto scrivendo 1 in un nodo non-foglia\n");
-			printf("Sono al livello %d, indice container(%u)\n", level(parent_fix),parent_fix->container_pos);
-			printf("scrivendo il valore %llx al posto di %llx in un nodo non-foglia\n", new_val, old_val);
-			printf("scrivendo il valore %llx al posto di %llx in un nodo non-foglia\n", BITMASK_LEAF(new_val, parent_fix->container_pos), BITMASK_LEAF(old_val, parent_fix->container_pos));
-			abort();
-		}
-#endif
+	parent = &parent(parent);
+	p_pos = parent->container_pos;
 		
-	}while(!__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
+	while(BUNCHROOT(parent) != upper_bound){
+		do{
+			old_val = parent->container->nodes;
+			new_val = old_val | (COALESCE_RIGHT(0, p_pos) << is_leaf_by_idx(p_pos));
+			//if (&(left(parent))==n)
+			//	new_val = COALESCE_LEFT(new_val, p_pos);
+			//else
+			//	new_val = COALESCE_RIGHT(new_val, p_pos);
+		}while(!__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
+		parent = &parent(BUNCHROOT(parent));//parent = &parent(parent); //QUESTO HA RIDOTTO DEL 20 PER CENTO I TEMPI.. WTF!!!! (TODO: solo per richiamare attenzione)
+		p_pos = parent->container_pos;
+	}//while(BUNCHROOT(parent) != upper_bound);
 	//find_the_bug(4);
-	if(BUNCHROOT(parent)!=upper_bound)
-		marca(BUNCHROOT(parent));
+	//if(BUNCHROOT(parent)!=upper_bound)
+	//	marca(BUNCHROOT(parent));
 }
 
 
@@ -904,73 +823,65 @@ void marca(node* n){
  
  */
 void smarca_(node* n){
+	unsigned long long old_val, new_val, p_pos;
 	bool exit=false;
-	node* current;
-	node* parent;
-	unsigned long long old_val, new_val;
-#ifdef DEBUG
-	node *parent_fix = &parent(n);
-#endif
+	node /**current,*/ *parent;
+	parent = n;
 	
 	do{
-		exit = false;
-		current = n;
-		parent = &parent(n);
-		
-		old_val = new_val = parent->container->nodes;
-		if(&(left(parent))==current){
-			if(!IS_COALESCING_LEFT(new_val, parent->container_pos)) //qualcuno l'ha già pulito
-				return;
-			new_val = CLEAN_LEFT_COALESCE(new_val, parent ->container_pos); //lo facciamo noi
-			new_val = CLEAN_LEFT(new_val, parent -> container_pos);
-			//SE il fratello è occupato vai alla CAS
-			if(IS_OCCUPIED_RIGHT(new_val, parent -> container_pos))
-				continue;
-		}
-		if(&(right(parent))==current){
-			if(!IS_COALESCING_RIGHT(new_val, parent->container_pos)) //qualcuno l'ha già pulito
-				return;
-			new_val = CLEAN_RIGHT_COALESCE(new_val, parent ->container_pos); //lo facciamo noi
-			new_val = CLEAN_RIGHT(new_val, parent -> container_pos);
-			//SE il fratello è occupato vai alla CAS
-			if(IS_OCCUPIED_LEFT(new_val, parent -> container_pos))
-				continue;
-		}
-		
-		
-		//ORA VADO A SMARCARE TUTTI GLI ALTRI NODI NON FOGLIA DI QUESTO GRAPPOLO
-		current = parent;
-		parent = &parent(current);
-		while(current!=BUNCHROOT(current)){
-			//questo termina il ciclo se il fratello è occupato e setta exit = true
-			CHECK_BROTHER(parent, current, new_val);
+		parent = &parent(BUNCHROOT(parent));//&parent(parent); //
+		p_pos = parent->container_pos;
 			
-			new_val = UNLOCK_NOT_A_LEAF(new_val, parent->container_pos);
-			current = parent;
-			parent = &(parent(current));
-		}
-		
-#ifdef DEBUG
-		if(new_val & MASK_NODES_OCCUPIED){
-			printf("---Smarca: Sto scrivendo 1 in un nodo non-foglia\n");
-			printf("Sono al livello %d, indice container(%u)\n", level(parent_fix),parent_fix->container_pos);
-			printf("scrivendo il valore %llx al posto di %llx in un nodo non-foglia\n", new_val, old_val);
-			printf("scrivendo il valore %llx al posto di %llx in un nodo non-foglia\n", BITMASK_LEAF(new_val, parent_fix->container_pos), BITMASK_LEAF(old_val, parent_fix->container_pos));
-			abort();
-		}
-		if(BITMASK_LEAF(new_val, parent_fix->container_pos) & 0x10ULL){
-			printf("Smarca: Sto scrivendo 1 in un nodo non-foglia\n");
-			printf("Sono al livello %d, indice container(%u)\n", level(parent_fix),parent_fix->container_pos);
-			printf("scrivendo il valore %llx al posto di %llx in un nodo non-foglia\n", new_val, old_val);
-			printf("scrivendo il valore %llx al posto di %llx in un nodo non-foglia\n", BITMASK_LEAF(new_val, parent_fix->container_pos), BITMASK_LEAF(old_val, parent_fix->container_pos));
-			abort();
-		}
-#endif	
-		
-	}while(!__sync_bool_compare_and_swap(&(parent(n).container->nodes), old_val, new_val));
+		do{
+			exit = false;
+			
+			//TODO: questo if_else può essere semplificato di molto con le giuste macro...probabilmente non influisce sulle performance
+			old_val = new_val = parent->container->nodes;
+			if(is_left_by_idx(p_pos)){
+				if(!IS_COALESCING_LEFT(new_val, p_pos)) //qualcuno l'ha già pulito
+					return;
+				new_val = CLEAN_LEFT_COALESCE(new_val, p_pos); //lo facciamo noi
+				new_val = CLEAN_LEFT(new_val, p_pos);
+				//SE il fratello è occupato vai alla CAS
+				if(IS_OCCUPIED_RIGHT(new_val, p_pos))
+					continue;
+			}
+			else{
+				if(!IS_COALESCING_RIGHT(new_val, p_pos)) //qualcuno l'ha già pulito
+					return;
+				new_val = CLEAN_RIGHT_COALESCE(new_val, p_pos); //lo facciamo noi
+				new_val = CLEAN_RIGHT(new_val, p_pos);
+				//SE il fratello è occupato vai alla CAS
+				if(IS_OCCUPIED_LEFT(new_val, p_pos))
+					continue;
+			}
+			
+			
+			//ORA VADO A SMARCARE TUTTI GLI ALTRI NODI NON FOGLIA DI QUESTO GRAPPOLO
+			//current = parent;
+			//parent = &parent(current);
+			//while(current!=BUNCHROOT(current)){
+			//	//questo termina il ciclo se il fratello è occupato e setta exit = true
+			//	CHECK_BROTHER(parent, current, new_val);
+			//	
+			//	new_val = UNLOCK_NOT_A_LEAF(new_val, parent->container_pos);
+			//	current = parent;
+			//	parent = &(parent(current));
+			//}
+			////
+					
+			while((p_pos/=2) != 0){
+				CHECK_BROTHER_OCCUPIED(p_pos,new_val); //questo termina il ciclo se il fratello è occupato e setta exit = true
+				new_val = UNLOCK_NOT_A_LEAF(new_val, p_pos);
+			}
+			
+		}while(!__sync_bool_compare_and_swap(&(parent(parent).container->nodes), old_val, new_val));
 	
-	if(current != upper_bound && !exit) //OCCHIO perchè current è la radice successiva
-		smarca_(current); //devo andare su current che sarebbe la radice successiva;
+	}while(BUNCHROOT(parent) != upper_bound && !exit);
+	
+	
+	//if(current != upper_bound && !exit) //OCCHIO perchè current è la radice successiva
+	//	smarca_(current); //devo andare su current che sarebbe la radice successiva;
 	
 }
 
@@ -1073,7 +984,7 @@ void write_on_a_file_in_ampiezza(){
 	
 	for(i=1;i<=number_of_nodes;i++){
 		node* n = &tree[i];
-		fprintf(f, "(%p) %u\t val=%llu has %llu B. mem_start in %llu  level is %u\n", (void*)n, tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
+		fprintf(f, "(%p) %llu\t val=%llu has %llu B. mem_start in %llu  level is %u\n", (void*)n, tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
 	}
 	
 	fclose(f);
@@ -1117,7 +1028,7 @@ void write_on_a_file_in_ampiezza_start(){
 	
 	for(i=1;i<=number_of_nodes;i++){
 		node* n = &tree[i];
-		fprintf(f, "(%p) %u val=%llu has %llu B. mem_start in %llu  level is %u\n", (void*)n, tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
+		fprintf(f, "(%p) %llu val=%llu has %llu B. mem_start in %llu  level is %u\n", (void*)n, tree[i].pos,  VAL_OF_NODE(n) , tree[i].mem_size, tree[i].mem_start,  level(n));
 	}
 	
 	fclose(f);
