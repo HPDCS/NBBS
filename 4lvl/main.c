@@ -54,7 +54,7 @@ void parallel_try(){
 			
 			//QUA CON SCELTA VIENE DECISO IL NUMERO DELLE PAGINE DA ALLOCARE
 			scelta = (MIN_ALLOCABLE_BYTES) << (rand_lim(scelta_lvl)); //<<rimpiazza con un exp^(-1)
-			//if(scelta==0)
+			if(scelta==0)
 				scelta=1;
 			
 			if(takenn_serbatoio->number==0){
