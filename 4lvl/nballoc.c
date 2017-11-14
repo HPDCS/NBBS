@@ -72,15 +72,6 @@ Bitmap for container:
 #define IS_COALESCING_LEFT(NODES, POS)  ((NODES) == ( COALESCE_LEFT(NODES,POS)))
 #define IS_COALESCING_RIGHT(NODES, POS) ((NODES) == (COALESCE_RIGHT(NODES,POS)))
 
-//se il fratello è in uso non devo risalire più a smarcare! se lo faccio sblocco il genitore di mio fratello che è occupato!
-//#define CHECK_BROTHER(parent, current, actual_value) \
-//		{ \
-//			if(\
-//			((&left(parent)) == current && (!IS_ALLOCABLE(actual_value,(&right(parent))->container_pos))) || \
-//			((&right(parent))== current && (!IS_ALLOCABLE(actual_value, (&left(parent))->container_pos)))\
-//			){ exit=true; break;}\
-//		}
-
 #define CHECK_BROTHER_OCCUPIED(n_pos, actual_value) \
 		{ \
 			if(\
@@ -621,6 +612,7 @@ unsigned long long occupa_container(unsigned long long n_pos, unsigned long long
 	return new_val;
 }
 
+
 /*
  Prova ad allocare un DATO nodo.
  Con questa allocazione abbiamo che se un generico nodo è occupato, è occupato tutto il suo ramo
@@ -632,7 +624,7 @@ unsigned long long occupa_container(unsigned long long n_pos, unsigned long long
  
  */
 unsigned long long alloc(node* n){ // non conviene andare con l'index perchè tanto serve il puntatore al container
-	unsigned long long old_val, new_val, n_pos, curr_pos, failed_at;
+	unsigned long long old_val, new_val, n_pos, /*curr_pos,*/ failed_at;
 	
 	n_pos = n->container_pos;
 	
@@ -763,6 +755,39 @@ unsigned long long libera_discendenti(node* n, unsigned long long new_val){ //TO
 	return new_val;
 }
 
+unsigned long long libera_container(unsigned long long n_pos, unsigned long long new_val){//TODO
+	unsigned long long i=0, tmp_val, /*str_lvl,*/ starting, ending, curr_pos;
+	bool exit = false;
+	
+	//if(left_index(n) >= number_of_nodes)//MAURO: non sono sicuro sia corretto... //TODO
+	//	return new_val;						//ma infondo, serve?
+
+	curr_pos = n_pos;
+	while(curr_pos != 0){
+			CHECK_BROTHER_OCCUPIED(curr_pos,new_val); //questo termina il ciclo se il fratello è occupato e setta exit = true
+			curr_pos/=2;
+			new_val = UNLOCK_NOT_A_LEAF(new_val, curr_pos);
+	}
+
+	
+	//lvl = level_from_root_by_idx(n_pos); //[1,4] = numero del livello
+	curr_pos = n_pos;
+	tmp_val = 1ULL;
+	
+	while(curr_pos < LEAF_START_POSITION){
+		new_val &= ~(tmp_val << (curr_pos-1));
+		tmp_val |=  (tmp_val << (curr_pos/n_pos));
+		curr_pos *= 2;
+	}
+	
+	starting = (n_pos>>i);
+	ending = starting + (1>>i);
+	for(i = starting ; i < ending ; i++){
+		new_val = UNLOCK_A_LEAF(new_val, i);
+	}
+	return new_val;
+}
+
 /*
  Questa funzione fa la free_node da n al nodo rappresentato dalla variabile globale upper_bound.
  Questa funzione potrebbe essere chiamata sia per liberare un nodo occupato, sia per annullare le modifiche apportate da una allocazione che ha fallito (in quel caso upper_bound non è la root ma è il nodo in cui la alloc ha fallito).
@@ -789,23 +814,23 @@ void free_node_(node* n){
 		exit = false;
 		n_pos = p_pos = n->container_pos; 
 		old_val = new_val = n->container->nodes;
-		//new_val = libera_container(n_pos, new_val);
-		
-		while(p_pos != 0){
-			CHECK_BROTHER_OCCUPIED(p_pos,new_val); //questo termina il ciclo se il fratello è occupato e setta exit = true
-			p_pos/=2;
-			new_val = UNLOCK_NOT_A_LEAF(new_val, p_pos);
-		}
-	
-		//if(!IS_LEAF(n) && (lchild_idx_by_ptr(n) <= number_of_nodes)){ //se non è foglia (nel senso che non è tra le posizione 8-15 e se i figli esistono.
-		//	new_val = libera_discendenti(n,new_val);
-		//}
-		if(IS_LEAF(n))
-			new_val = UNLOCK_A_LEAF(new_val, n_pos);
-		else{
-			new_val = libera_discendenti(n,new_val);
-			new_val = UNLOCK_NOT_A_LEAF(new_val, n_pos);//TODO accorpare NOT_A_LEAF in livera_discendenti
-		}
+		new_val = libera_container(n_pos, new_val);
+	//	
+	//	while(p_pos != 0){
+	//		CHECK_BROTHER_OCCUPIED(p_pos,new_val); //questo termina il ciclo se il fratello è occupato e setta exit = true
+	//		p_pos/=2;
+	//		new_val = UNLOCK_NOT_A_LEAF(new_val, p_pos);
+	//	}
+	//
+	//	//if(!IS_LEAF(n) && (lchild_idx_by_ptr(n) <= number_of_nodes)){ //se non è foglia (nel senso che non è tra le posizione 8-15 e se i figli esistono.
+	//	//	new_val = libera_discendenti(n,new_val);
+	//	//}
+	//	if(IS_LEAF(n))
+	//		new_val = UNLOCK_A_LEAF(new_val, n_pos);
+	//	else{
+	//		new_val = libera_discendenti(n,new_val);
+	//		new_val = UNLOCK_NOT_A_LEAF(new_val, n_pos);//TODO accorpare NOT_A_LEAF in livera_discendenti
+	//	}
 	}while(new_val!=old_val && !__sync_bool_compare_and_swap(&n->container->nodes,old_val, new_val));
 	
 	if(BUNCHROOT(n) != upper_bound /* && !exit*/)
