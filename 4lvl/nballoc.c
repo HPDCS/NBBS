@@ -418,12 +418,12 @@ void init(unsigned long long levels){
 	
 	printf("UMA Init complete\n");
 	printf("\t Total Memory = %llu\n", overall_memory_size);
-	printf("\t Levels = %llu\n", overall_height);
-	printf("\t Leaves = %u\n", (number_of_nodes+1)/2);
-	printf("\t Nodes = %u\n", number_of_nodes);
+	printf("\t Levels = %10llu\n", overall_height);
+	printf("\t Leaves = %10u\n", (number_of_nodes+1)/2);
+	printf("\t Nodes  = %10u\n", number_of_nodes);
 	printf("\t Containers = %u\n", number_of_container);
-	printf("\t Min size %llu at level %llu\n", MIN_ALLOCABLE_BYTES, overall_height);
-	printf("\t Max size %llu at level %llu\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+	printf("\t Min size %12llu at level %2llu\n", MIN_ALLOCABLE_BYTES, overall_height);
+	printf("\t Max size %12llu at level %2llu\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
 	
 }
 #endif

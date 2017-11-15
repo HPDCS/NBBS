@@ -29,7 +29,7 @@ unsigned int master;
 unsigned int mypid;
 unsigned int myid;
 
-unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
+unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops, *volatile memory;
 
 
 void parallel_try(){
@@ -56,6 +56,7 @@ void parallel_try(){
 			scelta = (MIN_ALLOCABLE_BYTES) << (rand_lim(scelta_lvl)); //<<rimpiazza con un exp^(-1)
 			if(scelta==0)
 				scelta=1;
+			scelta = upper_power_of_two(scelta);
 			
 			if(takenn_serbatoio->number==0){
 				printf("Allocazioni %llu free %llu allocazioni-free=%llu\n", allocs[myid], frees[myid], allocs[myid] - frees[myid]);
@@ -67,6 +68,7 @@ void parallel_try(){
 				continue;
 			}
 			allocs[myid]++;
+			memory[myid]+=scelta;
 			
 			//estraggo un nodo dal serbatoio
 			t = takenn_serbatoio->head;
@@ -92,6 +94,7 @@ void parallel_try(){
 			
 			if(scelta==0){
 				free_node(takenn->head->elem);
+				scelta = (takenn->head->elem->mem_size);
 				chosen = takenn->head;
 				takenn->head = takenn->head->next;
 			}
@@ -102,8 +105,10 @@ void parallel_try(){
 				
 				chosen = runner->next;
 				free_node(chosen->elem);
+				scelta = (chosen->elem->mem_size);
 				runner->next = runner->next->next;
 			}
+			memory[myid]-=scelta;
 			takenn->number--;
 			chosen->next = takenn_serbatoio->head;
 			takenn_serbatoio->head = chosen;
@@ -115,87 +120,6 @@ void parallel_try(){
 	 
 }
 
-
-/*
-void parallel_try(){
-	int i, j, allocazioni, free, tentativi;
-	unsigned long scelta;
-	unsigned int scelta_lvl;
-	
-	node* obt;
-	taken_list_elem *t, *runner, *chosen;
-	
-	scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
-	tentativi = 10000000 / number_of_processes ;
-	i = j = free = allocazioni = 0;
-	
-	for(i=0;i<tentativi;i++){
-		
-		scelta = rand();
-		
-		//ALLOC
-		//if(scelta >=((RAND_MAX/10)*5)){
-		if(scelta >= ((RAND_MAX/10)*takenn->number)){
-			
-			//QUA CON SCELTA VIENE DECISO IL NUMERO DELLE PAGINE DA ALLOCARE
-			scelta = (MIN_ALLOCABLE_BYTES) << (rand_lim(scelta_lvl)); //<<rimpiazza con un exp^(-1)
-			//if(scelta==0)
-				scelta=1;
-			
-			if(takenn_serbatoio->number==0){
-				printf("Allocazioni %d free %d allocazioni-free=%d\n", allocazioni, free, allocazioni-free);
-				exit(0);
-			}
-			
-			obt = request_memory(scelta);
-			if (obt==NULL){
-				failures[write_failures_on]++;
-				continue;
-			}
-			allocazioni++;
-			
-			//estraggo un nodo dal serbatoio
-			t = takenn_serbatoio->head;
-			takenn_serbatoio->head = takenn_serbatoio->head->next;
-			takenn_serbatoio->number--;
-			//inserisco il nodo tra quelli presi
-			t->elem = obt;
-			t->next = takenn->head;;
-			takenn->head = t;
-			takenn->number++;
-		}
-		//FREE
-		else{
-			if(takenn->number==0){
-				continue;
-			}
-			free++;
-
-			//scelgo il nodo da liberare nella mia taken list
-			scelta = rand_lim((takenn->number)-1); //ritorna un numero da 0<head> a number-1<ultimo>
-			
-			if(scelta==0){
-				free_node(takenn->head->elem);
-				chosen = takenn->head;
-				takenn->head = takenn->head->next;
-			}
-			else{
-				runner = takenn->head;
-				for(j=0;j<scelta-1;j++)
-					runner = runner->next;
-				
-				chosen = runner->next;
-				free_node(chosen->elem);
-				runner->next = runner->next->next;
-			}
-			takenn->number--;
-			chosen->next = takenn_serbatoio->head;
-			takenn_serbatoio->head = chosen;
-			takenn_serbatoio->number++;
-		}
-	} 
-}
-*/
 int main(int argc, char**argv){
 	int status, local_pid;
 	
@@ -227,12 +151,15 @@ int main(int argc, char**argv){
 	allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	frees = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	ops = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	memory = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	
 		
 	for(i=0; i<number_of_processes; i++){
 		allocs[i] = 0;
 		frees[i] = 0;
 		failures[i] = 0;
 		ops[i] = 0;
+		memory[i] = 0;
 	}
 	
 	for(i=0; i<number_of_processes; i++){
@@ -276,30 +203,36 @@ int main(int argc, char**argv){
 	}
 	   
 	//__asm__ __volatile__ ("mfence" ::: "memory");
-	unsigned long long total_fail = 0, total_alloc = 0, total_free = 0, total_ops = 0;
-	
+	unsigned long long total_fail = 0, total_alloc = 0, total_free = 0, total_ops = 0, total_mem = 0;
+		
 	printf("_______________________________________\n");
+		printf("tot_ops expected: %10llu\n",  ops[0]);
+		
 	for(i=0;i<number_of_processes;i++){
-		if(i>0) printf(". . . . . . . . . . . . . . . \n");
-		printf("Process %d: TOT_OPS %llu\n",i, ops[i]);
-		printf("\t allocati: %llu\n", allocs[i]);
-		printf("\t dealloca: %llu\n", frees[i]);
-		printf("\t failures: %llu\n", failures[i]);
-		printf("\t tot_ops_done: %llu\n", allocs[i]+frees[i]);
+		//if(i>0) printf(". . . . . . . . . . . . . . . \n");
+		printf("[%d]: TOT_OPS      %10llu: ",i, allocs[i]+frees[i]+failures[i]);
+		printf("\t allocati: %10llu ;", allocs[i]);
+		printf("\t dealloca: %10llu ;", frees[i]);
+		printf("\t failures: %10llu ;", failures[i]);
+		printf("\t memory  : %10llu Bytes \n", memory[i]);
 		total_fail += failures[i];
 		total_alloc += allocs[i];
 		total_free += frees[i];
 		total_ops += ops[i];
+		total_mem += memory[i];
 	}
 	printf("_______________________________________\n");
-	printf("Total ops		 %llu\n", total_ops);
-	printf("total allocs is   %llu\n", total_alloc);
-	printf("total frees is	%llu\n", total_free);
-	printf("total failures is %llu\n", total_fail);
-	printf("total operations: %llu\n", total_alloc + total_free + total_fail);
+	printf("Total ops exp     %10llu\n", total_ops);
+	printf("total ops done:   %10llu\n", total_alloc + total_free + total_fail);
+	printf("total allocs:     %10llu\n", total_alloc);
+	printf("total frees:  	  %10llu\n", total_free);
+	printf("       diff:  	  %10llu\n", total_alloc-total_free);
+	printf("        mem:  	  %10llu Bytes\n", total_mem);
+	printf("............................\n");	
+	printf("total failures:   %10llu\n", total_fail);
 #ifdef DEBUG
-	printf("total nodes allocated: %llu\n", *node_allocated);
-	printf("total memory allocated: %llu Bytes\n", *size_allocated);
+	printf("total nodes alloc:%10llu\n", *node_allocated);
+	printf("total memo alloc: %10llu Bytes\n", *size_allocated);
 	//write_on_a_file_in_ampiezza();
 #endif
 	
