@@ -54,7 +54,7 @@ Bitmap for each node:
 #define parent_ptr_by_idx(n)   (tree[parent_idx_by_idx(n)])
 
 #define level(n)        ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) ))
-#define level_by_idx(n) ( (overall_height) - (log2_(n)))
+#define level_by_idx(n) ( 1 + (log2_(n)))
 
 
 /***************************************************
@@ -86,7 +86,8 @@ static void internal_free_node(node* n, node* upper_bound);
 static void internal_free_node2(unsigned int n, unsigned int upper_bound);
 
 #ifdef DEBUG
-unsigned long long *node_allocated, *size_allocated;
+nbint  *size_allocated;
+unsigned long long *node_allocated;
 #endif
 
 /*******************************************************************
@@ -133,7 +134,7 @@ void init(unsigned long levels){
 
 #ifdef DEBUG
 	node_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    size_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    size_allocated = mmap(NULL, sizeof(nbint), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
       
     __sync_fetch_and_and(node_allocated,0);
     __sync_fetch_and_and(size_allocated,0);
@@ -145,8 +146,8 @@ void init(unsigned long levels){
     printf("\t Total Memory = %lu\n", overall_memory_size);
     printf("\t Levels = %u\n", overall_height);
     printf("\t Leaves = %u\n", (number_of_nodes+1)/2);
-    printf("\t Min size %u at level %u\n", MIN_ALLOCABLE_BYTES, overall_height);
-    printf("\t Max size %u at level %u\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+    printf("\t Min size %llu at level %u\n", MIN_ALLOCABLE_BYTES, overall_height);
+    printf("\t Max size %llu at level %u\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
 }
 
 
@@ -442,7 +443,7 @@ static void smarca(node* n, node* upper_bound){
 			//else
 				new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE | MASK_CLEAN_OCCUPIED_RIGHT) << is_left_child);
 				
-		} while (!__sync_bool_compare_and_swap(&actual->val,actual_value,new_val));
+		} while (new_val != actual_value && !__sync_bool_compare_and_swap(&actual->val,actual_value,new_val));
 
 	}while(	(actual!=upper_bound) &&
 			//!(&left(actual)==n && (actual->val & MASK_OCCUPY_RIGHT)!=0) &&
@@ -483,7 +484,7 @@ static void smarca2(unsigned int n, unsigned int upper_bound){
 
             new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE | MASK_CLEAN_OCCUPIED_RIGHT) << is_left_child);
                 
-        } while (!__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
+        } while (new_val != actual_value && !__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
 
     }while( (actual!=upper_bound) &&
             !( (new_val & (MASK_OCCUPY_LEFT >> is_left_child) ) != 0 )  

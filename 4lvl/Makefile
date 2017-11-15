@@ -27,7 +27,7 @@ test: main.o nballoc.o utils.o
 main.o : main.c nballoc.h utils.h
 	$(CC) $(FLAGS) main.c -o main.o -c
 
-correctness.o : correctness.c
+correctness.o : correctness.c nballoc.h utils.h
 	$(CC) $(FLAGS) correctness.c -o correctness.o -c
 
 nballoc.o : nballoc.c nballoc.h utils.h timer.h	

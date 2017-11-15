@@ -6,17 +6,17 @@
 ****************************************************/
 
 #ifndef MIN_ALLOCABLE_BYTES
-#define MIN_ALLOCABLE_BYTES 8 //(2KB) numero minimo di byte allocabili
+#define MIN_ALLOCABLE_BYTES 8ULL //(2KB) numero minimo di byte allocabili
 #endif
 #ifndef MAX_ALLOCABLE_BYTE
-#define MAX_ALLOCABLE_BYTE  16384 //(16KB)
+#define MAX_ALLOCABLE_BYTE  16384ULL //(16KB)
 #endif
 
 #define SERBATOIO_DIM (16*8192)
 
 #define PAGE_SIZE (4096)
 
-#define DEBUG
+//#define DEBUG
 
 typedef unsigned int nbint; 
 
@@ -51,7 +51,8 @@ node* request_memory(unsigned pages);
 void destroy();
 
 #ifdef DEBUG
-extern unsigned long long *node_allocated, *size_allocated;
+extern unsigned long long *node_allocated; 
+extern nbint *size_allocated;
 #endif
 
 
