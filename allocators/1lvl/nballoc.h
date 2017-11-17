@@ -10,6 +10,9 @@
 #ifndef MAX_ALLOCABLE_BYTE
 #define MAX_ALLOCABLE_BYTE  16384ULL //(16KB)
 #endif
+#ifndef NUM_LEVELS
+#define NUM_LEVELS  20ULL //(16KB)
+#endif
 
 #define SERBATOIO_DIM (16*8192)
 
@@ -44,10 +47,10 @@ extern unsigned mypid;
 extern unsigned myid;
 extern unsigned int number_of_leaves;
 
-void init(unsigned long memory);
+void init(int);
 void free_node(node* n);
 node* request_memory(unsigned pages);
-void destroy();
+//void destroy();
 
 #ifdef DEBUG
 extern unsigned long long *node_allocated; 

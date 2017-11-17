@@ -1,0 +1,9 @@
+scrivere non_blocking init
+introdurre la tabella per la free
+ritoccare il main
+scrivere i bloccanti
+pulire tutto il codice
+completare makefile dei benchmark
+modificato 
+script di test (quali metriche??)
+script di plot

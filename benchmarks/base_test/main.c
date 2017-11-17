@@ -125,7 +125,7 @@ int main(int argc, char**argv){
 	number_of_processes=atoi(argv[1]);
 	unsigned long requested = atol(argv[2]);
 	
-	init(requested);
+	//init(0);
 	
 	failures = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
