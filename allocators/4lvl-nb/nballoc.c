@@ -83,12 +83,6 @@ Bitmap for container:
 #define VAL_OF_NODE(n) ((unsigned long long) (n->container_pos<LEAF_START_POSITION ) ? ((n->container->nodes & (0x1ULL << (n->container_pos-1))) >> (n->container_pos-1)) : ((n->container->nodes & (LEAF_FULL_MASK << ((LEAF_START_POSITION-1) + (5 * ((n->container_pos-1) - (LEAF_START_POSITION-1))))))) >> ((LEAF_START_POSITION-1) + (5 * ((n->container_pos-1) - (LEAF_START_POSITION-1)))))
 
 #define ROOT 			(tree[1])
-#define left(n) 		(tree[( (n->pos)*(2ULL)        )])
-#define right(n) 		(tree[(((n->pos)*(2ULL))+(1ULL))])
-#define left_index(n) 	(((n)->pos)*(2ULL))
-#define right_index(n) 	(((n)->pos)*(2ULL)+(1ILL))
-#define parent(n) 		(tree[(unsigned long long)(((n)->pos)/(2ULL))])
-#define parent_index(n)  ((unsigned long long)(((n)->pos)/(2ULL)))
 
 #define level(n) ((unsigned int) ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) )))
 #define level_by_idx(n) ( 1 + (log2_(n)))
@@ -127,6 +121,7 @@ unsigned int number_of_leaves;
 unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 unsigned int number_of_processes;
 unsigned int number_of_container;
+static volatile unsigned long long levels = NUM_LEVELS;
 
 #ifdef NUMA
 	unsigned int number_of_numa_nodes;
@@ -146,47 +141,27 @@ unsigned long long *node_allocated, *size_allocated;
 
 /* DICHIARAZIONE DI FUNZIONI *//*---------------------------------------------------------------------------------------------*/
 
-void init_node(node* n);
-void init_tree(unsigned long long number_of_nodes);
-void init(unsigned long long memory);
+static void init_tree(unsigned long long number_of_nodes);
+static void init();
 void end();
-unsigned long long alloc(node* n);
-void marca(node* n);
-bool IS_OCCUPIED(unsigned long long, unsigned);
-unsigned long long check_parent(node* n);
-void smarca_(node* n);
-void free_node_(node* n);
-node* request_memory(unsigned int pages);
+static unsigned long long alloc(node* n);
+static void marca(node* n);
+static bool IS_OCCUPIED(unsigned long long, unsigned);
+static unsigned long long check_parent(node* n);
+static void smarca_(node* n);
+static void free_node_(node* n);
+void* request_memory(unsigned int pages);
 #ifdef NUMA
 void do_move(void * buffer, unsigned int target_node, unsigned int n_pages);
 #endif
 
 
+static node* volatile free_tree = NULL; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
+
 
 
 
 /* FUNZIONI *//*---------------------------------------------------------------------------------------------*/
-void smarca(node* n){
-#ifdef NUMA
-	tree = overall_trees[n->numa_node];
-	containers = overall_containers[n->numa_node];
-#endif
-	upper_bound = &ROOT;
-	smarca_(n);
-}
-
-void free_node(node* n){
-#ifdef NUMA
-	tree = overall_trees[n->numa_node];
-	containers = overall_containers[n->numa_node];
-#endif
-	upper_bound = &ROOT;
-	free_node_(n);
-#ifdef DEBUG
-	__sync_fetch_and_add(node_allocated,-1);
-	__sync_fetch_and_add(size_allocated,-(n->mem_size));
-#endif
-}
 
 //MARK: INIT
 /*
@@ -219,9 +194,9 @@ next_node_label:
 	//init_node(ROOT);
 	for(i=2;i<=number_of_nodes;i++){
 		tree[i].pos = i;
-		node parent = parent(&tree[i]);
+		node parent = parent_ptr_by_ptr(&tree[i]);
 		tree[i].mem_size = (parent.mem_size) / 2;
-		tree[i].mem_start = (parent.mem_start) + ((tree[i].mem_size)&(left_index(&parent)==i));
+		tree[i].mem_start = (parent.mem_start) + ((tree[i].mem_size)&(lchild_idx_by_ptr(&parent)==i));
 		
 #ifdef NUMA
 		tree[i].numa_node = j;
@@ -235,7 +210,7 @@ next_node_label:
 		}
 		else{
 			tree[i].container = parent.container;
-			tree[i].container_pos = (parent.container_pos*2)+(1&(left_index(&parent)!=i));
+			tree[i].container_pos = (parent.container_pos*2)+(1&(lchild_idx_by_ptr(&parent)!=i));
 		}
 	}
 
@@ -245,51 +220,13 @@ next_node_label:
 #endif
 }
 
-#ifdef NUMA
-/*
-	Funzione che effettua la move_pages (portando le pagine sul nodo target_node) delle n_pages che iniziano da buffer.
-	@param buffer: puntatore all'inizio della memoria da migrare
-	@param target_node: nodo su cui spostare la memoria
-	@param n_pages: numero di pagine da spostare partendo da buffer
-
- */
-void do_move(void * buffer, unsigned int target_node, unsigned int n_pages) {
-#ifdef NUMA_AUDIT
-	printf("******MIGRATE TO %u\n", target_node);
-#endif
-	void* pages[n_pages];
-	int nodes[n_pages];
-	int status[n_pages];
-	int i;
-	int returned;
-	for (i = 0; i < n_pages; i++){
-		pages[i] = buffer + (i * PAGE_SIZE);
-		nodes[i] = target_node;
-		status[i] = -1;
-	}
-	for (i = 0; i < n_pages; i++){
-		//INITIALIZE
-		*(long*)pages[i] = 0;
-	}
-
-	returned = move_pages(0, n_pages, (void **)pages, nodes, status, MPOL_MF_MOVE);
-	if(returned != 0)
-		puts("something was wrong in move_pages..");
-#ifdef NUMA_AUDIT
-	printf("returned is %d, errno is%d\n", returned, errno);
-	for (i = 0; i < n_pages; i++){
-		printf("status[%d]=%d\n", i, status[i]);
-	}
-#endif
-}
-#endif
 
 
 #ifdef NUMA
 /*
 	@param levels:  Numero di livelli dell'albero - NUMA version
  */
-void init(unsigned long long levels){
+void init(){
 	
 #ifdef NUMA_AUDIT
 	int numa_node = -1;
@@ -387,7 +324,7 @@ void init(unsigned long long levels){
 /*
 	@param pages: pagine richieste. Questo sarà il valore della radice - NON NUMA VERSION
  */
-void init(unsigned long long levels){
+void init(){
 	number_of_nodes = (1<<levels) - 1;
 	printf("NON NUMA: %d\n", number_of_nodes);
 	
@@ -398,8 +335,9 @@ void init(unsigned long long levels){
 	overall_memory 	= mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	tree 			= mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	containers 		= mmap(NULL,(number_of_nodes-1)*sizeof(node_container), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	
-	if(overall_memory==MAP_FAILED || tree==MAP_FAILED || containers==MAP_FAILED){
+	free_tree  		= mmap(NULL,64+(number_of_leaves)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+     
+	if(overall_memory==MAP_FAILED || tree==MAP_FAILED || containers==MAP_FAILED || free_tree==MAP_FAILED){
 		puts("Failing allocating structures\n");
 		abort();
 	}
@@ -428,7 +366,9 @@ void init(unsigned long long levels){
 }
 #endif
 
-
+void __attribute__ ((constructor)) premain(){
+    init();
+}
 
 void end(){
 #ifdef NUMA
@@ -451,18 +391,6 @@ void end(){
 
 //MARK: ALLOCAZIONE
 
-/*
-	Questa funziona controlla se il nodo in posizione container_pos è libero nella maschera dei nodi rappresentata da val. Per la semantica dell'algoritmo un nodo è allocabile se e solo se esso è completamente libero, i.e. il nodo è completamento 0. Per questo motivo per le foglie il check è fatto con 0x1F
-	@param val: il container nel quale il nodo si trova
-	@param pos: il container_pos del nodo che vogliamo controllare
- 
- */
-bool IS_ALLOCABLE(unsigned long long val, unsigned int pos){
-	if(pos < LEAF_START_POSITION) //non è una foglia
-		return !( (val & ((LOCK_NOT_LEAF_MASK) << (pos-1))) != 0);
-	else
-		return !(val & (( (LEAF_FULL_MASK) << (LEAF_START_POSITION-1)) << (5* (pos-(LEAF_START_POSITION)))));
-}
 
 /*
  Questa funziona controlla se il nodo in posizione container_pos è TOTALMENTE occupato (se si tratta di una foglia) oppure se è parzialmente o totalmente occupato se non è una foglia, nella maschera dei nodi rappresentata da val. Ricordo che per la semantica dell'algoritmo una foglia è totalmente occupata se e solo ha il quinto bit settato.
@@ -470,7 +398,7 @@ bool IS_ALLOCABLE(unsigned long long val, unsigned int pos){
  @param pos: il container_pos del nodo che vogliamo controllare
  
  */
-bool IS_OCCUPIED(unsigned long long val, unsigned int pos){
+static inline bool IS_OCCUPIED(unsigned long long val, unsigned int pos){
 	if(pos < LEAF_START_POSITION)
 		return ( (val & ((LOCK_NOT_LEAF_MASK) << (pos - 1))) != 0);
 	else//è una foglia
@@ -483,9 +411,9 @@ bool IS_OCCUPIED(unsigned long long val, unsigned int pos){
  @param pages: memoria richiesta dall'utente
  @return l'indirizzo di memoria del nodo utilizzato per soddisfare la richiesta; NULL in caso di fallimento
  */
-node* request_memory(unsigned int byte){
+void* request_memory(unsigned int byte){
 	bool restarted = false; 
-	unsigned long long started_at, actual, starting_node, last_node, failed_at;
+	unsigned long long started_at, actual, starting_node, last_node, failed_at, leaf_position;
 	
 	if(byte > MAX_ALLOCABLE_BYTE)
 		return NULL;
@@ -517,11 +445,14 @@ try_on_a_new_numa_node_label:
 			__sync_fetch_and_add(node_allocated,1);
 			__sync_fetch_and_add(size_allocated,byte);
 #endif
-			return &tree[actual];
+
+            leaf_position = byte*(actual - overall_memory_size / byte)/MIN_ALLOCABLE_BYTES;
+            free_tree[leaf_position].pos = actual;
+			return ((char*) overall_memory)+leaf_position*MIN_ALLOCABLE_BYTES;
 		}
 #ifdef NUMA
+		printf("C- %s AT %d\n", "FULL buddy", failed_at);
 		if(failed_at==1){ // il buddy è pieno
-
 			if(allocate_in_remote_node && ((trying_on_numa_node+1)%number_of_numa_nodes) != starting_numa_node){
 				trying_on_numa_node = (trying_on_numa_node+1)%number_of_numa_nodes;
 				goto try_on_a_new_numa_node_label;
@@ -562,25 +493,7 @@ try_on_a_new_numa_node_label:
 	@param new_val: sarebbe  n->container->nodes da modificare
  
  */
-unsigned long long occupa_discendenti(node* n, unsigned long long n_pos, unsigned long long new_val){//TODO
-	//se l'ultimo grappolo non ha tutti i nodi che deve avere (tipo ha solo due livelli). QUesto quando andiamo a regime non dovrebbe succedere perchè questa situazione la evitiamo (inutile avere un grappolo monco.. il numero di cas è lo stesso
-	if(left_index(n) >= number_of_nodes)//MAURO: non sono sicuro sia corretto...
-		return new_val;
-	if(!is_leaf_by_idx(lchild_idx_by_idx(n_pos))){
-		new_val = LOCK_NOT_A_LEAF(new_val, lchild_idx_by_idx(n_pos));// left(n).container_pos);
-		new_val = LOCK_NOT_A_LEAF(new_val, rchild_idx_by_idx(n_pos));//right(n).container_pos);
-		new_val = occupa_discendenti(&lchild_ptr_by_ptr(n)/*&left(n)*/, lchild_idx_by_idx(n_pos), new_val);
-		new_val = occupa_discendenti(&rchild_ptr_by_ptr(n)/*&right(n)*/, rchild_idx_by_idx(n_pos), new_val);//TODO: vediamo se si può eliminare la ricorsione
-	}
-	else{
-		new_val = LOCK_A_LEAF(new_val, lchild_idx_by_idx(n_pos));//left(n).container_pos);
-		new_val = LOCK_A_LEAF(new_val, rchild_idx_by_idx(n_pos));//right(n).container_pos);
-	}
-	return new_val;
-}
-
-
-unsigned long long occupa_container(unsigned long long n_pos, unsigned long long new_val){//TODO
+static inline unsigned long long occupa_container(unsigned long long n_pos, unsigned long long new_val){//TODO
 	unsigned long long i=0, tmp_val, /*str_lvl,*/ starting, ending, curr_pos;
 	
 	//if(left_index(n) >= number_of_nodes)//MAURO: non sono sicuro sia corretto... //TODO
@@ -604,12 +517,26 @@ unsigned long long occupa_container(unsigned long long n_pos, unsigned long long
 		curr_pos *= 2;
 	}
 	
-	starting = (n_pos >> i);
-	ending = starting + (1>>i);
+	starting = (n_pos << i);
+	ending = starting + (1<<i);
 	for(i = starting ; i < ending ; i++){
 		new_val = LOCK_A_LEAF(new_val, i);
 	}
 	return new_val;
+}
+
+
+/*
+	Questa funziona controlla se il nodo in posizione container_pos è libero nella maschera dei nodi rappresentata da val. Per la semantica dell'algoritmo un nodo è allocabile se e solo se esso è completamente libero, i.e. il nodo è completamento 0. Per questo motivo per le foglie il check è fatto con 0x1F
+	@param val: il container nel quale il nodo si trova
+	@param pos: il container_pos del nodo che vogliamo controllare
+ 
+ */
+static inline bool IS_ALLOCABLE(unsigned long long val, unsigned int pos){
+	if(pos < LEAF_START_POSITION) //non è una foglia
+		return !( (val & ((LOCK_NOT_LEAF_MASK) << (pos-1))) != 0);
+	else
+		return !(val & (( (LEAF_FULL_MASK) << (LEAF_START_POSITION-1)) << (5* (pos-(LEAF_START_POSITION)))));
 }
 
 
@@ -639,25 +566,6 @@ unsigned long long alloc(node* n){ // non conviene andare con l'index perchè ta
 		
 		new_val = occupa_container(n_pos, new_val);
 		
-		
-	//	//marco i genitori in questo grappolo Sicuramente non è una foglia visto che parto da un genitore
-	//	curr_pos = n_pos;
-	//	while((curr_pos/=2) != 0){
-	//		new_val = LOCK_NOT_A_LEAF(new_val, curr_pos); 
-	//	}
-	//	
-	//	//marco n se è una foglia
-	//	if(is_leaf_by_idx(n_pos)){
-	//		new_val = LOCK_A_LEAF(new_val, n_pos);
-	//	}
-	//	
-	//	//marco n ed i suoi figli se n non è una foglia
-	//	else{
-	//		//marco n
-	//		new_val = LOCK_NOT_A_LEAF(new_val,n_pos); //TODO: accorpa nella riga sotto
-	//		new_val = occupa_discendenti(n, n_pos, new_val);
-	//	}
-		
 	}while(new_val!=old_val && !__sync_bool_compare_and_swap(&n->container->nodes, old_val, new_val));
 	//Se n appartiene al grappolo della radice
 	
@@ -668,7 +576,9 @@ unsigned long long alloc(node* n){ // non conviene andare con l'index perchè ta
 		return 0;//true;
 	}
 	else{
+			printf("A- %s AT %d\n", "FULL buddy", failed_at);
 		free_node_(n);//TODO: mi insospettisce, come capisce dove fermarsi?
+			printf("B- %s AT %d\n", "FULL buddy", failed_at);
 		return failed_at;//false;
 	}
 }
@@ -684,19 +594,19 @@ unsigned long long alloc(node* n){ // non conviene andare con l'index perchè ta
  
  */
 unsigned long long check_parent(node* n){
-	unsigned long long new_val, old_val, p_pos;
+	unsigned long long new_val, old_val, container_pos, parent_pos, tmp_pos;
 	node* parent = n;
 	do{
 		upper_bound = parent;
-		parent = &parent(BUNCHROOT(parent));
+		parent = &parent_ptr_by_ptr(BUNCHROOT(parent));
+		container_pos = parent->container_pos; 
+		parent_pos = parent->pos;
 		
 		do{
-			//parent = &parent(n);
-			p_pos = parent->container_pos;
 			new_val = old_val = parent->container->nodes;
 			
-			if(IS_OCCUPIED(parent->container->nodes, p_pos)){
-				return parent->pos;
+			if(IS_OCCUPIED(parent->container->nodes, container_pos)){
+				return parent_pos;
 				//failed_at_node = parent->pos;
 				//return false;
 			}
@@ -704,29 +614,70 @@ unsigned long long check_parent(node* n){
 			//CON QUESTA PEGGIORA
 			//new_val = (( is_left_by_idx(n_idx))&( OCCUPY_LEFT( CLEAN_LEFT_COALESCE(new_val, parent->container_pos), parent->container_pos))) |
 			//			((!is_left_by_idx(n_idx))&(OCCUPY_RIGHT(CLEAN_RIGHT_COALESCE(new_val, parent->container_pos), parent->container_pos)));
-					
 			if(is_left_by_idx(n->pos)/*&left(parent)==n*/){
-				new_val = CLEAN_LEFT_COALESCE(new_val, p_pos);
-				new_val = OCCUPY_LEFT(new_val, p_pos);
+				new_val = CLEAN_LEFT_COALESCE(new_val, container_pos);
+				new_val = OCCUPY_LEFT(new_val, container_pos);
 			}else{
-				new_val = CLEAN_RIGHT_COALESCE(new_val, p_pos);
-				new_val = OCCUPY_RIGHT(new_val, p_pos);
+				new_val = CLEAN_RIGHT_COALESCE(new_val, container_pos);
+				new_val = OCCUPY_RIGHT(new_val, container_pos);
 			}
-			
 			//new_val = LOCK_NOT_A_LEAF(new_val, parent(parent).container_pos);
 			//parent = &parent(parent);
 			//new_val = LOCK_NOT_A_LEAF(new_val, parent(parent).container_pos);
 			//new_val = LOCK_NOT_A_LEAF(new_val, root_grappolo->container_pos);
-					
-			while((p_pos/=2) > 0){
-				new_val = LOCK_NOT_A_LEAF(new_val, p_pos);
+			
+			tmp_pos = parent_pos;	
+			while((container_pos/=2) > 0){
+				tmp_pos /= 2;
+				//parent = &parent_ptr_by_ptr(parent);
+				if(IS_OCCUPIED(new_val, container_pos))
+				{
+					printf("%s FAILED AT %d\n", "POSSIBLE ERROR", tmp_pos);
+					return tmp_pos;
+					//printf("%s\n", "POSSIBLE ERROR");
+					//exit(1);
+				}
+				new_val = LOCK_NOT_A_LEAF(new_val, container_pos);
 			}
 			
 		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent->container->nodes),old_val,new_val));
+		n = parent;
 	}while(BUNCHROOT(parent) != &ROOT);	
 	
 	return 0;//true;
 }
+
+/*
+ 
+ Funzione ausiliaria a free_node_ (in particolare al primo step della free). In questa fase la free vuole marcare tutti i nodi dei sottoalberi interessati dalla free come "coalescing". Qui n è la radice di un grappolo. Bisogna mettere il bit di coalescing al padre (che quindi sarà una foglia con 5 bit). Nota che questa funzione non ha ragione di esistere se il nodo da liberare è nel grappolo di upper_bound.
+ @param n è la radice di un grappolo. Bisogna settare in coalescing il padre.
+ @return il valore precedente con un singolo nodo marcato come "coalescing"
+ 
+ */
+static void marca(node* n){
+	node* parent = n;// &parent(n);
+	unsigned long long old_val, new_val, p_pos;
+	
+	parent = &parent_ptr_by_ptr(parent);
+	p_pos = parent->container_pos;
+		
+	while(BUNCHROOT(parent) != upper_bound){
+		do{
+			old_val = parent->container->nodes;
+			new_val = old_val | (COALESCE_RIGHT(0, p_pos) << is_leaf_by_idx(p_pos));
+			//if (&(left(parent))==n)
+			//	new_val = COALESCE_LEFT(new_val, p_pos);
+			//else
+			//	new_val = COALESCE_RIGHT(new_val, p_pos);
+		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
+		parent = &parent_ptr_by_ptr(BUNCHROOT(parent));//parent = &parent(parent); //QUESTO HA RIDOTTO DEL 20 PER CENTO I TEMPI.. WTF!!!! (TODO: solo per richiamare attenzione)
+		p_pos = parent->container_pos;
+	}//while(BUNCHROOT(parent) != upper_bound);
+	//find_the_bug(4);
+	//if(BUNCHROOT(parent)!=upper_bound)
+	//	marca(BUNCHROOT(parent));
+}
+
 
 //MARK: FREE
 
@@ -737,20 +688,20 @@ unsigned long long check_parent(node* n){
  @param new_val: sarebbe  n->container->nodes da modificare
  
  */
-unsigned long long libera_discendenti(node* n, unsigned long long new_val){ //TODO
+static unsigned long long libera_discendenti(node* n, unsigned long long new_val){ //TODO
 	//se l'ultimo grappolo non ha tutti i nodi che deve avere (tipo ha solo due livelli). QUesto quando andiamo a regime non dovrebbe succedere perchè questa situazione la evitiamo (inutile avere un grappolo monco.. il numero di cas è lo stesso
 	if(left_index(n)>=number_of_nodes)
 		return new_val;
 	
-	if(!IS_LEAF(&left(n))){
-		new_val = UNLOCK_NOT_A_LEAF(new_val, left(n).container_pos);
-		new_val = UNLOCK_NOT_A_LEAF(new_val, right(n).container_pos);
-		new_val = libera_discendenti(&left(n), new_val);
-		new_val = libera_discendenti(&right(n), new_val);
+	if(!IS_LEAF(&lchild_ptr_by_ptr(n))){
+		new_val = UNLOCK_NOT_A_LEAF(new_val, lchild_ptr_by_ptr(n).container_pos);
+		new_val = UNLOCK_NOT_A_LEAF(new_val, rchild_ptr_by_ptr(n).container_pos);
+		new_val = libera_discendenti(&lchild_ptr_by_ptr(n), new_val);
+		new_val = libera_discendenti(&rchild_ptr_by_ptr(n), new_val);
 	}
 	else{
-		new_val = UNLOCK_A_LEAF(new_val,left(n).container_pos);
-		new_val = UNLOCK_A_LEAF(new_val,right(n).container_pos);
+		new_val = UNLOCK_A_LEAF(new_val,lchild_ptr_by_ptr(n).container_pos);
+		new_val = UNLOCK_A_LEAF(new_val,rchild_ptr_by_ptr(n).container_pos);
 	}
 	return new_val;
 }
@@ -780,13 +731,43 @@ unsigned long long libera_container(unsigned long long n_pos, unsigned long long
 		curr_pos *= 2;
 	}
 	
-	starting = (n_pos>>i);
-	ending = starting + (1>>i);
+	starting = (n_pos<<i);
+	ending = starting + (1<<i);
 	for(i = starting ; i < ending ; i++){
 		new_val = UNLOCK_A_LEAF(new_val, i);
 	}
 	return new_val;
 }
+
+
+static void smarca(node* n){
+#ifdef NUMA
+	tree = overall_trees[n->numa_node];
+	containers = overall_containers[n->numa_node];
+#endif
+	upper_bound = &ROOT;
+	smarca_(n);
+}
+
+void free_node(void* n){
+#ifdef NUMA
+	tree = overall_trees[n->numa_node];
+	containers = overall_containers[n->numa_node];
+#endif
+	upper_bound = &ROOT;
+
+    char * tmp = ((char*)n) - (char*)overall_memory;
+    unsigned int pos = (unsigned long long) tmp;
+    pos = pos / MIN_ALLOCABLE_BYTES;
+
+	free_node_(&tree[free_tree[pos].pos]);
+#ifdef DEBUG
+	__sync_fetch_and_add(node_allocated,-1);
+	__sync_fetch_and_add(size_allocated,-(n->mem_size));
+#endif
+}
+
+
 
 /*
  Questa funzione fa la free_node da n al nodo rappresentato dalla variabile globale upper_bound.
@@ -837,37 +818,6 @@ void free_node_(node* n){
 		smarca_(BUNCHROOT(n));
 }
 
-/*
- 
- Funzione ausiliaria a free_node_ (in particolare al primo step della free). In questa fase la free vuole marcare tutti i nodi dei sottoalberi interessati dalla free come "coalescing". Qui n è la radice di un grappolo. Bisogna mettere il bit di coalescing al padre (che quindi sarà una foglia con 5 bit). Nota che questa funzione non ha ragione di esistere se il nodo da liberare è nel grappolo di upper_bound.
- @param n è la radice di un grappolo. Bisogna settare in coalescing il padre.
- @return il valore precedente con un singolo nodo marcato come "coalescing"
- 
- */
-void marca(node* n){
-	node* parent = n;// &parent(n);
-	unsigned long long old_val, new_val, p_pos;
-	
-	parent = &parent(parent);
-	p_pos = parent->container_pos;
-		
-	while(BUNCHROOT(parent) != upper_bound){
-		do{
-			old_val = parent->container->nodes;
-			new_val = old_val | (COALESCE_RIGHT(0, p_pos) << is_leaf_by_idx(p_pos));
-			//if (&(left(parent))==n)
-			//	new_val = COALESCE_LEFT(new_val, p_pos);
-			//else
-			//	new_val = COALESCE_RIGHT(new_val, p_pos);
-		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
-		parent = &parent(BUNCHROOT(parent));//parent = &parent(parent); //QUESTO HA RIDOTTO DEL 20 PER CENTO I TEMPI.. WTF!!!! (TODO: solo per richiamare attenzione)
-		p_pos = parent->container_pos;
-	}//while(BUNCHROOT(parent) != upper_bound);
-	//find_the_bug(4);
-	//if(BUNCHROOT(parent)!=upper_bound)
-	//	marca(BUNCHROOT(parent));
-}
-
 
 
 /*
@@ -883,7 +833,7 @@ void smarca_(node* n){
 	parent = n;
 	
 	do{
-		parent = &parent(BUNCHROOT(parent));//&parent(parent); //
+		parent = &parent_ptr_by_ptr(BUNCHROOT(parent));//&parent(parent); //
 		p_pos = parent->container_pos;
 			
 		do{
@@ -929,7 +879,7 @@ void smarca_(node* n){
 				new_val = UNLOCK_NOT_A_LEAF(new_val, p_pos);
 			}
 			
-		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent(parent).container->nodes), old_val, new_val));
+		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent_ptr_by_ptr(parent).container->nodes), old_val, new_val));
 	
 	}while(BUNCHROOT(parent) != upper_bound && !exit);
 	
@@ -995,13 +945,79 @@ void  find_the_bug(int who){
 */
 
 
+
+
+/********** UNSED ***************/
+
+//static unsigned long long occupa_discendenti(node* n, unsigned long long n_pos, unsigned long long new_val){//TODO
+//	//se l'ultimo grappolo non ha tutti i nodi che deve avere (tipo ha solo due livelli). QUesto quando andiamo a regime non dovrebbe succedere perchè questa situazione la evitiamo (inutile avere un grappolo monco.. il numero di cas è lo stesso
+//	if(left_index(n) >= number_of_nodes)//MAURO: non sono sicuro sia corretto...
+//		return new_val;
+//	if(!is_leaf_by_idx(lchild_idx_by_idx(n_pos))){
+//		new_val = LOCK_NOT_A_LEAF(new_val, lchild_idx_by_idx(n_pos));// left(n).container_pos);
+//		new_val = LOCK_NOT_A_LEAF(new_val, rchild_idx_by_idx(n_pos));//right(n).container_pos);
+//		new_val = occupa_discendenti(&lchild_ptr_by_ptr(n)/*&left(n)*/, lchild_idx_by_idx(n_pos), new_val);
+//		new_val = occupa_discendenti(&rchild_ptr_by_ptr(n)/*&right(n)*/, rchild_idx_by_idx(n_pos), new_val);//TODO: vediamo se si può eliminare la ricorsione
+//	}
+//	else{
+//		new_val = LOCK_A_LEAF(new_val, lchild_idx_by_idx(n_pos));//left(n).container_pos);
+//		new_val = LOCK_A_LEAF(new_val, rchild_idx_by_idx(n_pos));//right(n).container_pos);
+//	}
+//	return new_val;
+//}
+
+
+
+
+
+#ifdef NUMA
+/*
+	Funzione che effettua la move_pages (portando le pagine sul nodo target_node) delle n_pages che iniziano da buffer.
+	@param buffer: puntatore all'inizio della memoria da migrare
+	@param target_node: nodo su cui spostare la memoria
+	@param n_pages: numero di pagine da spostare partendo da buffer
+
+ */
+void do_move(void * buffer, unsigned int target_node, unsigned int n_pages) {
+#ifdef NUMA_AUDIT
+	printf("******MIGRATE TO %u\n", target_node);
+#endif
+	void* pages[n_pages];
+	int nodes[n_pages];
+	int status[n_pages];
+	int i;
+	int returned;
+	for (i = 0; i < n_pages; i++){
+		pages[i] = buffer + (i * PAGE_SIZE);
+		nodes[i] = target_node;
+		status[i] = -1;
+	}
+	for (i = 0; i < n_pages; i++){
+		//INITIALIZE
+		*(long*)pages[i] = 0;
+	}
+
+	returned = move_pages(0, n_pages, (void **)pages, nodes, status, MPOL_MF_MOVE);
+	if(returned != 0)
+		puts("something was wrong in move_pages..");
+#ifdef NUMA_AUDIT
+	printf("returned is %d, errno is%d\n", returned, errno);
+	for (i = 0; i < n_pages; i++){
+		printf("status[%d]=%d\n", i, status[i]);
+	}
+#endif
+}
+#endif
+
+
+
 //MARK: WRITE SU FILE
 
 /* 
 	SCRIVE SU FILE LA SITUAZIONE DELL'ALBERO (IN AMPIEZZA) VISTA DA UN CERTO THREAD
  */
 
-void write_on_a_file_in_ampiezza(){
+static void write_on_a_file_in_ampiezza(){
 	char filename[128];
 	int i;
 #ifdef NUMA
@@ -1045,7 +1061,7 @@ void write_on_a_file_in_ampiezza(){
 #endif
 }
 
-void write_on_a_file_in_ampiezza_start(){
+static void write_on_a_file_in_ampiezza_start(){
 	char filename[128];
 	int i;
 #ifdef NUMA

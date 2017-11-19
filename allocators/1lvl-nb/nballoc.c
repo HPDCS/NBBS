@@ -60,7 +60,9 @@ Bitmap for each node:
 ***************************************************/
 
 static node* volatile tree = NULL; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
+static node* volatile free_tree = NULL; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 static node* volatile real_tree = NULL; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
+static node* volatile real_free_tree = NULL; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 static unsigned long overall_memory_size;
 static unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 unsigned int number_of_leaves; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
@@ -71,6 +73,8 @@ static volatile unsigned long levels = NUM_LEVELS;
 //unsigned int failed_at_node;
 static unsigned int overall_height;
 static unsigned int max_level;
+
+volatile int init_phase = 0;
 
 extern int number_of_processes;
 extern taken_list* takenn;
@@ -100,11 +104,13 @@ unsigned long long *node_allocated;
  @Author: Andrea Scarselli
  @param levels: Number of levels in the tree. 
  */
-void init(int u){
+void init(){
     void *tmp_overall_memory;
     void *tmp_real_tree;
     void *tmp_tree;
-
+    void *tmp_real_free_tree;
+    void *tmp_free_tree;
+    bool first = false;
     number_of_nodes = (1<<levels) -1;
     
     overall_height = levels;
@@ -120,39 +126,64 @@ void init(int u){
 	
 	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
     
-    tmp_overall_memory = mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    
-    if(tmp_overall_memory == MAP_FAILED)
-        abort();
-    else if(!__sync_bool_compare_and_swap(&overall_memory, NULL, tmp_overall_memory))
-            munmap(tmp_overall_memory, overall_memory_size);
-    
-        
-    tmp_real_tree = mmap(NULL,64+(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    
-    if(tmp_real_tree == MAP_FAILED)
-        abort();
-    else if(!__sync_bool_compare_and_swap(&real_tree, NULL, tmp_real_tree))
-            munmap(tmp_real_tree, 64+(1+number_of_nodes)*sizeof(node));
+   if(init_phase ==  0 && __sync_bool_compare_and_swap(&init_phase, 0, 1)){
 
-    tmp_tree = (typeof(tree)) (( ( (unsigned long long) real_tree) + 64 ) & ( ~ 0x40ULL ) );
-    __sync_bool_compare_and_swap(&tree, NULL, tmp_tree);
-    
-    init_tree(number_of_nodes);
-    
+        tmp_overall_memory = mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        first = true;
+        if(tmp_overall_memory == MAP_FAILED)
+            abort();
+        else if(!__sync_bool_compare_and_swap(&overall_memory, NULL, tmp_overall_memory))
+                munmap(tmp_overall_memory, overall_memory_size);
+           
+        tmp_real_tree = mmap(NULL,64+(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        
+        if(tmp_real_tree == MAP_FAILED)
+            abort();
+        else if(!__sync_bool_compare_and_swap(&real_tree, NULL, tmp_real_tree))
+                munmap(tmp_real_tree, 64+(1+number_of_nodes)*sizeof(node));
+
+        // DO IN CAS
+        tmp_tree = tmp_real_tree;// (typeof(tree)) (( ( (unsigned long long) real_tree) + 64 ) & ( ~ 0x40ULL ) );
+
+
+        tmp_real_free_tree = mmap(NULL,64+(number_of_leaves)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        
+        if(tmp_real_free_tree == MAP_FAILED)
+            abort();
+        else if(!__sync_bool_compare_and_swap(&real_free_tree, NULL, tmp_real_free_tree))
+                munmap(tmp_real_free_tree, 64+(number_of_leaves)*sizeof(node));
+
+        // DO IN CAS
+        tmp_free_tree = tmp_real_free_tree; //(typeof(tree)) (( ( (unsigned long long) tmp_real_free_tree) + 64 ) & ( ~ 0x40ULL ) );
+
 
 #ifdef DEBUG
-	node_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    node_allocated = mmap(NULL, sizeof(unsigned long long), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     size_allocated = mmap(NULL, sizeof(nbint), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
       
     __sync_fetch_and_and(node_allocated,0);
     __sync_fetch_and_and(size_allocated,0);
     
-	printf("Debug mode: ON\n");
+    printf("Debug mode: ON\n");
 #endif
+
+
+        __sync_bool_compare_and_swap(&tree, NULL, tmp_tree);
+        __sync_bool_compare_and_swap(&free_tree, NULL, tmp_free_tree);
+        __sync_bool_compare_and_swap(&init_phase, 1, 2);
+    }
+
+    while(init_phase < 2);
+    if(init_phase == 2)
+        init_tree(number_of_nodes);
+    else
+        return;
     
-    if(tmp_overall_memory == overall_memory){
-        printf("Init complete %p %p %llu\n", tmp_overall_memory, tmp_real_tree, (unsigned long long)(tmp_real_tree-tmp_overall_memory));
+
+
+    
+    if(first){
+        printf("Init complete %p %p %p %llu\n", overall_memory, tree, free_tree, (unsigned long long)(tmp_real_tree-tmp_overall_memory));
         printf("\t Total Memory = %lu\n", overall_memory_size);
         printf("\t Levels = %u\n", overall_height);
         printf("\t Leaves = %u\n", (number_of_nodes+1)/2);
@@ -162,6 +193,10 @@ void init(int u){
 }
 
 
+
+void __attribute__ ((constructor)) premain(){
+    init();
+}
 
 
 /*
@@ -208,12 +243,13 @@ static void destroy(){
  @return l'indirizzo di memoria allocato per la richiesta; NULL in caso di fallimento
  
  */
-node* request_memory(unsigned byte){
+void* request_memory(unsigned byte){
     unsigned int starting_node, last_node, actual, started_at, failed_at_node;
     bool restarted = false;
+    unsigned int leaf_position;
 
-    if(tree == NULL)
-        init(0);
+    //if(tree == NULL)
+    //    init();
 
     if( byte > MAX_ALLOCABLE_BYTE || byte > overall_memory_size)
         return NULL;
@@ -247,7 +283,10 @@ node* request_memory(unsigned byte){
 			__sync_fetch_and_add(node_allocated,1);
 			__sync_fetch_and_add(size_allocated,byte);
 #endif
-            return &tree[actual];
+            leaf_position = byte*(actual - overall_memory_size / byte)/MIN_ALLOCABLE_BYTES;
+            free_tree[leaf_position].pos = actual;
+            //printf("leaf pos %d\n", leaf_position);
+            return ((char*) overall_memory) + leaf_position*MIN_ALLOCABLE_BYTES; //&tree[actual];
         }        
         //if(failed_at_node == 1){ // il buddy è pieno
         //    return NULL;
@@ -351,7 +390,7 @@ static unsigned int alloc2(unsigned int n){
  @param upper_bound; l'ultimo nodo da smarcare
  */
 
-static void smarca2(unsigned int n, unsigned int upper_bound){
+static inline void smarca2(unsigned int n, unsigned int upper_bound){
     nbint actual_value;
     nbint new_val;
     bool is_left_child;
@@ -396,7 +435,7 @@ static void smarca2(unsigned int n, unsigned int upper_bound){
  @param n: nodo da liberare
  @param upper_bound: l'ultimo nodo da liberare
  */
-static void internal_free_node2(unsigned int n, unsigned int upper_bound){
+static inline void internal_free_node2(unsigned int n, unsigned int upper_bound){
     unsigned int actual;
     unsigned int runner;
 
@@ -431,8 +470,11 @@ static void internal_free_node2(unsigned int n, unsigned int upper_bound){
 }
 
 
-void free_node(node* n){
-    internal_free_node2(n->pos, 1);
+void free_node(void* n){
+    char * tmp = ((char*)n) - (char*)overall_memory;
+    unsigned int pos = (unsigned long long) tmp;
+    pos = pos / MIN_ALLOCABLE_BYTES;
+    internal_free_node2( free_tree[pos].pos, 1);
 #ifdef DEBUG
 	__sync_fetch_and_add(node_allocated,-1);
 	__sync_fetch_and_add(size_allocated,-(n->mem_size));

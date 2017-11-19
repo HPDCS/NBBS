@@ -3,4 +3,4 @@
 **/*.o
 **/test
 **/debug
-**/base-test-*
+**/base-test-*-*

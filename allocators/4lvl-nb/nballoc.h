@@ -11,6 +11,9 @@
 #ifndef MAX_ALLOCABLE_BYTE
 #define MAX_ALLOCABLE_BYTE  16384ULL //(16KB)
 #endif
+#ifndef NUM_LEVELS
+#define NUM_LEVELS  20ULL //(16KB)
+#endif
 
 #define SERBATOIO_DIM (16*8192)
 
@@ -57,13 +60,12 @@ extern unsigned int master;
 extern unsigned int number_of_leaves;
 
 
-void init(unsigned long long memory);
-void free_node(node* n);
-node* request_memory(unsigned int bytes);
-void destroy();
+void free_node(void* n);
+void* request_memory(unsigned int bytes);
+
 extern unsigned int count_occupied_leaves();
-extern void write_on_a_file_in_ampiezza();
-extern void write_on_a_file_in_ampiezza_start();
+//extern void write_on_a_file_in_ampiezza();
+//extern void write_on_a_file_in_ampiezza_start();
 
 #ifdef DEBUG
 extern unsigned long long *node_allocated, *size_allocated;

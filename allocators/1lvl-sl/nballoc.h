@@ -25,10 +25,12 @@ typedef unsigned int nbint;
 
 typedef struct _node{
     volatile nbint val; //per i bit etc;
-    char pad[48];
+    char pad[40-sizeof(pthread_mutex_t)];
     unsigned int mem_start; //spiazzamento all'interno dell'overall_memory
     unsigned int mem_size;
     unsigned int pos; //posizione all'interno dell'array "tree"
+    unsigned int pad2; //posizione all'interno dell'array "tree"
+    pthread_mutex_t lock;
 } node;
 
 
@@ -47,10 +49,8 @@ extern unsigned mypid;
 extern unsigned myid;
 extern unsigned int number_of_leaves;
 
-void init(int);
-void free_node(node* n);
-node* request_memory(unsigned pages);
-//void destroy();
+void free_node(void* n);
+void* request_memory(unsigned pages);
 
 #ifdef DEBUG
 extern unsigned long long *node_allocated; 

@@ -125,7 +125,6 @@ int main(int argc, char**argv){
 	number_of_processes=atoi(argv[1]);
 	unsigned long requested = atol(argv[2]);
 	
-	//init(0);
 	
 	failures = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -175,7 +174,7 @@ int main(int argc, char**argv){
 	
 	//only parent reach this. Wait all processes (-1 parameters) and terminate
 	while ( (local_pid = waitpid(-1, &status, 0)) ){
-	if(!WIFEXITED(status)) printf("Figlio %d uscito per errore\n", local_pid);
+	if(!WIFEXITED(status)) printf("Figlio %d uscito per errore %d\n", local_pid, WTERMSIG(status));
 	//printf("Il figlio %d è terminato\n", local_pid);
 		if (errno == ECHILD) {
 			break;

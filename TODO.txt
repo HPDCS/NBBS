@@ -1,9 +1,8 @@
-scrivere non_blocking init
-introdurre la tabella per la free
-ritoccare il main
-scrivere i bloccanti
+scrivere non_blocking init			DONE 1lvl PREMAIN 4lvl
+introdurre la tabella per la free	DONE 1lvl DONE 4lvl
+ritoccare il main					Penso fatto (tolto init) e lock?
+scrivere i bloccanti				DONE 1lvl
 pulire tutto il codice
-completare makefile dei benchmark
-modificato 
+completare makefile dei benchmark 
 script di test (quali metriche??)
 script di plot
