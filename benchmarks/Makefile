@@ -1,11 +1,12 @@
 GIT_BENCH = cache-scratch  cache-thrash  common  larson  linux-scalability  phong threadtest
-DIRS := $(wildcard */)
+SKIP = numa_base_test/ common/ unit_test/
+DIRS = $(wildcard */)
 
 all:
-	@$(foreach dir, $(DIRS),\
+	@$(foreach dir, $(filter-out $(SKIP), $(DIRS) ) ,\
 	echo;\
 	echo \#\#\#\# COMPILING $(dir) \#\#\#\# ;\
-	$(MAKE) -C $(dir);\
+	$(MAKE) -C $(dir) || exit 1;\
 	echo \#\#\#\# END COMPILING $(dir) \#\#\#\#;\
 	)
 

@@ -1,7 +1,7 @@
 BASE_ALLOCATORS = ../../allocators
 
 PATH_ALLOCATORS = $(subst $(BASE_ALLOCATORS)/Makefile,  , $(wildcard $(BASE_ALLOCATORS)/*))
-ALLOCATORS = $(subst $(BASE_ALLOCATORS)/,  ,  $(PATH_ALLOCATORS))
+ALLOCATORS = $(filter-out Hoard , $(subst $(BASE_ALLOCATORS)/,  ,  $(PATH_ALLOCATORS)))
 INTERMEDIATE_OBJS_PATH = bin
 
 CC=gcc
