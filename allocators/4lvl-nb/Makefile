@@ -13,6 +13,10 @@ ifdef MAX
 FLAGS:= $(FLAGS) -DMAX_ALLOCABLE_BYTE=$(MAX)ULL
 endif
 
+ifdef NUM_LEVELS
+FLAGS :=$(FLAGS) -DNUM_LEVELS=$(NUM_LEVELS)ULL
+endif
+
 OBJS := nballoc.o
 
 -include $(OBJS:.o=.d)

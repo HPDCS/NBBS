@@ -14,7 +14,6 @@
 #define NUM_LEVELS  20ULL //(16KB)
 #endif
 
-#define SERBATOIO_DIM (16*8192)
 
 #define PAGE_SIZE (4096)
 
@@ -44,8 +43,8 @@ typedef struct _taken_list{
     unsigned number;
 }taken_list;
 
+extern void write_on_a_file_in_ampiezza_start();
 
-extern unsigned mypid;
 extern unsigned myid;
 extern unsigned int number_of_leaves;
 

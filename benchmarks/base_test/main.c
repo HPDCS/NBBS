@@ -9,23 +9,28 @@
 #include "nballoc.h"
 #include "utils.h"
 
+//#define MYDEBUG
+#define FAIL_END 12
+#define ITER 465
+#define SERBATOIO_DIM (16*8192)
 
-taken_list* takenn;
-taken_list* takenn_serbatoio;
+static taken_list* takenn;
+static taken_list* takenn_serbatoio;
 
 unsigned int number_of_processes;
-unsigned int master;
-unsigned int mypid;
+static unsigned int master;
+static unsigned int mypid;
 unsigned int myid;
 
-unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
-nbint *volatile memory;
+static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
+static nbint *volatile memory;
 
 
 void parallel_try(){
 	unsigned int i, j, tentativi;
 	unsigned long scelta;
 	unsigned int scelta_lvl;
+	unsigned int tmp = 0;
 	
 	node* obt;
 	taken_list_elem *t, *runner, *chosen;
@@ -33,15 +38,25 @@ void parallel_try(){
 	scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
 	tentativi = ops[myid] = 10000000 / number_of_processes ;
 	i = j = 0;
+
+	srand(17);
 	
 	//printf("[%u] pid=%u tentativi=%u ops=%llu\n", myid, mypid, tentativi, ops[myid]);
-	
+	int count = 0;
 	for(i=0;i<tentativi;i++){
+
+			#ifdef MYDEBUG
+				
+				if( i == ITER)
+					exit(1);
+			#endif
 		scelta = rand();
 		//ALLOC
-		//if(scelta >=((RAND_MAX/10)*5)){
-		if(scelta > ((RAND_MAX/10)*takenn->number)){
+		if(scelta >=((RAND_MAX/10)*5)){
+		//if(scelta > ((RAND_MAX/10)*takenn->number)){
 			
+			if(allocs[myid]-frees[myid] >= 2048) tmp++;
+
 			//QUA CON SCELTA VIENE DECISO IL NUMERO DELLE PAGINE DA ALLOCARE
 			scelta = (MIN_ALLOCABLE_BYTES) << (rand_lim(scelta_lvl)); //<<rimpiazza con un exp^(-1)
 			if(scelta==0)
@@ -52,11 +67,32 @@ void parallel_try(){
 				printf("Allocazioni %llu free %llu allocazioni-free=%llu\n", allocs[myid], frees[myid], allocs[myid] - frees[myid]);
 				exit(0);
 			}
+
+
+			#ifdef MYDEBUG
+				//printf("INIZIO MALLOC\n");
+				#endif
 			obt = request_memory(scelta);
 			if (obt==NULL){
+			#ifdef MYDEBUG
+				printf("%s scelta:%d iter:%d alloc:%d frees:%d\n", "FAILURE", scelta, i, allocs[myid], frees[myid] );
+				#endif
 				failures[myid]++;
+			#ifdef MYDEBUG
+				
+				if(count++ == FAIL_END || i == ITER)
+					exit(1);
+			#endif
 				continue;
 			}
+			#ifdef MYDEBUG
+			else
+				printf("MALLOC %s scelta:%d pointer: %p iter:%d alloc:%d frees:%d\n", "OK", scelta, obt,  i, allocs[myid], frees[myid] );
+			#endif
+
+
+			//printf("%s scelta:%d pointer %p iter:%d alloc:%d frees:%d\n", "MALLOC", scelta, obt, i, allocs[myid], frees[myid] );
+
 			allocs[myid]++;
 			memory[myid]+=scelta;
 			
@@ -66,6 +102,7 @@ void parallel_try(){
 			takenn_serbatoio->number--;
 			//inserisco il nodo tra quelli presi
 			t->elem = obt;
+			t->elem->mem_size = scelta;
 			t->next = takenn->head;;
 			takenn->head = t;
 			takenn->number++;
@@ -81,9 +118,19 @@ void parallel_try(){
 
 			//scelgo il nodo da liberare nella mia taken list
 			scelta = rand_lim((takenn->number)-1); //ritorna un numero da 0<head> a number-1<ultimo>
+
+
 			
 			if(scelta==0){
+
+
+			#ifdef MYDEBUG
+				printf("%s scelta:%d pointer %p iter:%d alloc:%d frees:%d\n", "FREE", takenn->head->elem->mem_size, takenn->head->elem, i, allocs[myid], frees[myid] );
+			#endif
 				free_node(takenn->head->elem);
+			#ifdef MYDEBUG
+				//printf("FINE FREE\n");
+			#endif
 				scelta = (takenn->head->elem->mem_size);
 				chosen = takenn->head;
 				takenn->head = takenn->head->next;
@@ -94,7 +141,13 @@ void parallel_try(){
 					runner = runner->next;
 				
 				chosen = runner->next;
+			#ifdef MYDEBUG
+				printf("%s scelta:%d pointer %p iter:%d alloc:%d frees:%d\n", "FREE", chosen->elem->mem_size, chosen->elem, i, allocs[myid], frees[myid] );
+			#endif
 				free_node(chosen->elem);
+			#ifdef MYDEBUG
+				//printf("FINE FREE\n");
+			#endif
 				scelta = (chosen->elem->mem_size);
 				runner->next = runner->next->next;
 			}
@@ -104,13 +157,29 @@ void parallel_try(){
 			takenn_serbatoio->head = chosen;
 			takenn_serbatoio->number++;
 		}
+		//write_on_a_file_in_ampiezza_start(i);
 	}
 	//__asm__ __volatile__ ("mfence" ::: "memory");
 	//printf("[%u] FINI:%u %llu\n", myid, i, ops[myid]);
+	printf("%s %d\n", "FAIL ALLOC PER ", tmp);
 	 
 }
 
+
+__attribute__((constructor(0))) void pre_main2(int argc, char**argv)
+{
+
+	number_of_processes=atoi(argv[1]);
+	failures = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	frees = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	ops = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	memory = mmap(NULL, sizeof(nbint) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+}
+
+
 int main(int argc, char**argv){
+	srand(17);
 	int status, local_pid;
 	
 	if(argc!=3){
@@ -125,14 +194,7 @@ int main(int argc, char**argv){
 	number_of_processes=atoi(argv[1]);
 	unsigned long requested = atol(argv[2]);
 	
-	
-	failures = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	frees = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	ops = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	memory = mmap(NULL, sizeof(nbint) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	
-		
+
 	for(i=0; i<number_of_processes; i++){
 		allocs[i] = 0;
 		frees[i] = 0;
@@ -141,8 +203,10 @@ int main(int argc, char**argv){
 		memory[i] = 0;
 	}
 	
-	for(i=0; i<number_of_processes; i++){
-		if(fork()==0){
+	for(i=0; i<number_of_processes; i++)
+	{
+		if(fork()==0)
+		{
 			//child code, do work and exit.
 			mypid = getpid();//__sync_fetch_and_add(id_counter, 1);//
 			myid = mypid % number_of_processes;

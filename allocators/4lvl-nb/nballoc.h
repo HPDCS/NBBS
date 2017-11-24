@@ -15,8 +15,6 @@
 #define NUM_LEVELS  20ULL //(16KB)
 #endif
 
-#define SERBATOIO_DIM (16*8192)
-
 #define PAGE_SIZE (4096)
 
 //#define DEBUG
@@ -54,9 +52,9 @@ typedef struct _taken_list{
 }taken_list;
 
 
-extern unsigned int mypid;
+//extern unsigned int mypid;
 extern unsigned int myid;
-extern unsigned int master;
+//extern unsigned int master;
 extern unsigned int number_of_leaves;
 
 
@@ -65,7 +63,7 @@ void* request_memory(unsigned int bytes);
 
 extern unsigned int count_occupied_leaves();
 //extern void write_on_a_file_in_ampiezza();
-//extern void write_on_a_file_in_ampiezza_start();
+extern void write_on_a_file_in_ampiezza_start();
 
 #ifdef DEBUG
 extern unsigned long long *node_allocated, *size_allocated;

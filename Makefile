@@ -4,7 +4,7 @@ all:
 	@$(foreach dir, $(DIRS),\
 	echo;\
 	echo \#\#\#\# COMPILING $(dir) \#\#\#\# ;\
-	$(MAKE) -C $(dir) || exit 1;\
+	$(MAKE) -C $(dir) $(SUBMAKEFLAGS) || exit 1;\
 	echo \#\#\#\# END COMPILING $(dir) \#\#\#\#;\
 	)
 

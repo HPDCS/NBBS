@@ -194,7 +194,7 @@ void init(){
 
 
 
-void __attribute__ ((constructor)) premain(){
+void __attribute__ ((constructor(1))) premain(){
     init();
 }
 
@@ -750,3 +750,29 @@ void free_node(void* n){
 //         //printf("%u has %lu B\n", tree[i]->pos, tree[i]->mem_size);
 //     }
 // }
+
+void write_on_a_file_in_ampiezza_start(unsigned int iter){
+     char filename[128];
+     
+   sprintf(filename, "./debug/1sl-%u - tree%d.txt", iter, getpid());
+     //sprintf(filename, "./debug/tree.txt");
+     FILE *f = fopen(filename, "w");
+     int i;
+  
+     if (f == NULL){
+         printf("Error opening file!\n");
+         exit(1);
+     }
+  
+     for(i=1;i<=number_of_nodes;i++){
+         node* n = &tree[i];
+         fprintf(f, "(%p) %5u val=%2lu has %8lu B. mem_start in %8lu  level is %2u\n", (void*)n, tree[i].pos,  tree[i].val , tree[i].mem_size, tree[i].mem_start,  level(n));
+     
+     if(level(n)!=overall_height && level(n)!= level(&tree[i+1]))
+       fprintf(f,"\n");
+     }
+     
+     
+  
+     fclose(f);
+ }

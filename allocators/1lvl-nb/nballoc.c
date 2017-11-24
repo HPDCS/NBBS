@@ -51,6 +51,8 @@ Bitmap for each node:
 #define rchild_ptr_by_idx(n)   (tree[rchild_idx_by_idx(n)])
 #define parent_ptr_by_idx(n)   (tree[parent_idx_by_idx(n)])
 
+#define is_left_by_idx(n)      (1ULL & (~(n)))
+
 #define level(n)        ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) ))
 #define level_by_idx(n) ( 1 + (log2_(n)))
 
@@ -194,7 +196,7 @@ void init(){
 
 
 
-void __attribute__ ((constructor)) premain(){
+void __attribute__ ((constructor(1))) premain(){
     init();
 }
 
@@ -346,9 +348,9 @@ static unsigned int alloc2(unsigned int n){
     }
         
     while(actual != 1){ //  && level(actual) <= max_level --secondo me si può fermare appena vede un fratello a 1
-        //son = actual;
+        son = actual;
+        is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
-        is_left_child = lchild_idx_by_idx(actual) == son;
 
         do{
             actual_value = tree[actual].val;
@@ -364,16 +366,15 @@ static unsigned int alloc2(unsigned int n){
             
             new_value = actual_value;
             
-            //if(is_left_child){ //n è sinistro
-            //  new_value = (new_value & MASK_CLEAN_LEFT_COALESCE) | MASK_OCCUPY_LEFT;
-            //  //new_value = new_value | MASK_OCCUPY_LEFT;
-            //}
-            //else{
-            //  new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
-            //  //new_value = new_value | MASK_OCCUPY_RIGHT;
-            //}
+            if(is_left_child){ //n è sinistro
+              new_value = (new_value & MASK_CLEAN_LEFT_COALESCE) | MASK_OCCUPY_LEFT;
+              //new_value = new_value | MASK_OCCUPY_LEFT;
+            }
+            else{
+              new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
+              //new_value = new_value | MASK_OCCUPY_RIGHT;
+            }
 
-            new_value = ( new_value & ( MASK_CLEAN_RIGHT_COALESCE << is_left_child ) ) | ( MASK_OCCUPY_RIGHT << is_left_child );
             //TODO: se new_val=actual_val non serve fare la CAS
         }while(new_value != actual_value && //CONTROLLA!!!
                 !__sync_bool_compare_and_swap(&(tree[actual].val), actual_value, new_value));
@@ -398,8 +399,8 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
     
     do{
         son = actual;
+        is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
-        is_left_child = lchild_idx_by_idx(actual) == son;
     
         do{
             actual_value = tree[actual].val;
@@ -408,7 +409,11 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
             if( (actual_value & (MASK_RIGHT_COALESCE << is_left_child) ) == 0  )
                 return;
 
-            new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE | MASK_CLEAN_OCCUPIED_RIGHT) << is_left_child);
+            if(is_left_child)
+                new_val = new_val & ((MASK_CLEAN_LEFT_COALESCE & MASK_CLEAN_OCCUPIED_LEFT));
+            else
+                new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT));
+            
                 
         } while (new_val != actual_value && !__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
 
@@ -447,7 +452,7 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
     actual = parent_idx_by_idx(n);
     runner = n;
     
-    while(runner!=upper_bound){ //  && level(runner) <=max_level
+    while(runner != upper_bound){ //  && level(runner) <=max_level
         
         __sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;
         
@@ -754,3 +759,30 @@ void free_node(void* n){
 //         //printf("%u has %lu B\n", tree[i]->pos, tree[i]->mem_size);
 //     }
 // }
+
+
+void write_on_a_file_in_ampiezza_start(unsigned int iter){
+     char filename[128];
+     
+   sprintf(filename, "./debug/1nb-%u - tree.txt", iter);
+     //sprintf(filename, "./debug/tree.txt");
+     FILE *f = fopen(filename, "w");
+     int i;
+  
+     if (f == NULL){
+         printf("Error opening file!\n");
+         exit(1);
+     }
+  
+     for(i=1;i<=number_of_nodes;i++){
+         node* n = &tree[i];
+         fprintf(f, "\t%d\t %5u val=%2lu has %8lu B. mem_start in %8lu  level is %2u\n",iter, tree[i].pos,  tree[i].val , tree[i].mem_size, tree[i].mem_start,  level(n));
+     
+     if(level(n)!=overall_height && level(n)!= level(&tree[i+1]))
+       fprintf(f,"\n");
+     }
+     
+     
+  
+     fclose(f);
+ }
