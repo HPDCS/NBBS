@@ -17,7 +17,7 @@
 
 #define PAGE_SIZE (4096)
 
-//#define DEBUG
+
 typedef unsigned long long nbint; 
 
 typedef struct _node node;
@@ -52,18 +52,13 @@ typedef struct _taken_list{
 }taken_list;
 
 
-//extern unsigned int mypid;
 extern unsigned int myid;
-//extern unsigned int master;
 extern unsigned int number_of_leaves;
 
 
 void free_node(void* n);
 void* request_memory(unsigned int bytes);
 
-extern unsigned int count_occupied_leaves();
-//extern void write_on_a_file_in_ampiezza();
-extern void write_on_a_file_in_ampiezza_start();
 
 #ifdef DEBUG
 extern unsigned long long *node_allocated, *size_allocated;
