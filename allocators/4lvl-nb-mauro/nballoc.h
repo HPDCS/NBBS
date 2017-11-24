@@ -17,6 +17,7 @@
 #define PAGE_SIZE (4096)
 
 //#define DEBUG
+typedef unsigned long long nbint; 
 
 typedef struct _node node;
 

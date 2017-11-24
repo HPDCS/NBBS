@@ -8,7 +8,7 @@ all:
 	@$(foreach dir, $(filter-out $(SKIP), $(DIRS) ) ,\
 	echo;\
 	echo \#\#\#\# COMPILING $(dir) \#\#\#\# ;\
-	$(MAKE) -C $(dir);\
+	$(MAKE) -C $(dir) || exit 1;\
 	echo \#\#\#\# END COMPILING $(dir) \#\#\#\#;\
 	)
 

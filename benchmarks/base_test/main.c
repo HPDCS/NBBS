@@ -18,8 +18,8 @@ static taken_list* takenn;
 static taken_list* takenn_serbatoio;
 
 unsigned int number_of_processes;
-static unsigned int master;
-static unsigned int mypid;
+unsigned int master;
+unsigned int mypid;
 unsigned int myid;
 
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
@@ -161,7 +161,7 @@ void parallel_try(){
 	}
 	//__asm__ __volatile__ ("mfence" ::: "memory");
 	//printf("[%u] FINI:%u %llu\n", myid, i, ops[myid]);
-	printf("%s %d\n", "FAIL ALLOC PER ", tmp);
+	//printf("%s %d\n", "FAIL ALLOC PER ", tmp);
 	 
 }
 

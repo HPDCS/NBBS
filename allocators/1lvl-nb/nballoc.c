@@ -185,7 +185,7 @@ void init(){
 
     
     if(first){
-        printf("Init complete %p %p %p %llu\n", overall_memory, tree, free_tree, (unsigned long long)(tmp_real_tree-tmp_overall_memory));
+        printf("UMA Init complete\n");
         printf("\t Total Memory = %lu\n", overall_memory_size);
         printf("\t Levels = %u\n", overall_height);
         printf("\t Leaves = %u\n", (number_of_nodes+1)/2);

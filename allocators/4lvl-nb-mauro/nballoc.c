@@ -170,12 +170,6 @@ void do_move(void * buffer, unsigned int target_node, unsigned int n_pages);
 
 void pre_init(int argc, char**argv) __attribute__((constructor(500)));
 void pre_init(int argc, char**argv) {
-	printf("[%u] Pre-init nballoc\n", getpid());
-	//if(argc!=3){
-	//	printf("usage: ./a.out <number of threads> <number of levels>\n");
-	//	exit(0);
-	//}
-	//number_of_processes=atoi(argv[1]);
 	init(atol(argv[2]));	
 }
 

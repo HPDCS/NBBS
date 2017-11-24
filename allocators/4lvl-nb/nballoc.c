@@ -346,7 +346,6 @@ void init(){
  */
 void init_BANANA(){
 	number_of_nodes = (1<<levels) - 1;
-	printf("NON NUMA: %d\n", number_of_nodes);
 	
 	number_of_leaves = (1<< (levels-1));
 	overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
