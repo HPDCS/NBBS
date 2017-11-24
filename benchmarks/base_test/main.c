@@ -166,7 +166,7 @@ void parallel_try(){
 }
 
 
-__attribute__((constructor(0))) void pre_main2(int argc, char**argv)
+__attribute__((constructor(400))) void pre_main2(int argc, char**argv)
 {
 
 	number_of_processes=atoi(argv[1]);

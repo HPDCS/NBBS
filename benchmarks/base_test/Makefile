@@ -5,7 +5,8 @@ ALLOCATORS = $(filter-out Hoard Makefile nballoc.mk , $(subst $(BASE_ALLOCATORS)
 INTERMEDIATE_OBJS_PATH = bin
 
 CC=gcc
-CFLAGS= -I$(BASE_ALLOCATORS)/$* -I../../utils
+CFLAGS= -I$(BASE_ALLOCATORS)/$* -I../../utils 
+LIBRARY = -lpthread
 
 
 TARGET=base_test
@@ -19,7 +20,7 @@ $(INTERMEDIATE_OBJS_PATH):
 
 $(TARGET)-%: $(TARGET)-%.o  $(BASE_ALLOCATORS)/%/nballoc.o
 	@echo linking $* $(TARGET)-$*.o $(BASE_ALLOCATORS)/$*/nballoc.o ../../utils/utils.o
-	$(CC) $(INTERMEDIATE_OBJS_PATH)/$(TARGET)-$*.o $(BASE_ALLOCATORS)/$*/nballoc.o ../../utils/utils.o -o $(TARGET)-$*
+	$(CC) $(INTERMEDIATE_OBJS_PATH)/$(TARGET)-$*.o $(BASE_ALLOCATORS)/$*/nballoc.o ../../utils/utils.o -o $(TARGET)-$* $(LIBRARY)
 
 $(TARGET)-%.o: main.c
 	@echo compiling for $(TARGET)-$*.o
