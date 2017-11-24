@@ -9,14 +9,16 @@
 #define MIN_ALLOCABLE_BYTES 8ULL //(2KB) numero minimo di byte allocabili
 #endif
 #ifndef MAX_ALLOCABLE_BYTE
-#define MAX_ALLOCABLE_BYTE  16384ULL //64ULL//16384ULL //(16KB)
+#define MAX_ALLOCABLE_BYTE  16384ULL //(16KB)
+#endif
+#ifndef NUM_LEVELS
+#define NUM_LEVELS  20ULL //(16KB)
 #endif
 
 #define SERBATOIO_DIM (16*8192)
 
 #define PAGE_SIZE (4096)
 
-//#define DEBUG
 typedef unsigned long long nbint; 
 
 typedef struct _node node;
@@ -51,21 +53,17 @@ typedef struct _taken_list{
 }taken_list;
 
 
-extern unsigned int mypid;
 extern unsigned int myid;
-extern unsigned int master;
 extern unsigned int number_of_leaves;
 extern unsigned int number_of_processes;
 
 
-void init(unsigned long long memory);
-void free_node(node* n);
-node* request_memory(unsigned int bytes);
-void destroy();
-extern unsigned int count_occupied_leaves();
-extern void write_on_a_file_in_ampiezza(unsigned int iter);
-extern void write_on_a_file_in_ampiezza_start();
-extern bool verify_consistency();
+void free_node(void* n);
+void* request_memory(unsigned int bytes);
+//extern unsigned int count_occupied_leaves();
+//extern void write_on_a_file_in_ampiezza(unsigned int iter);
+//extern void write_on_a_file_in_ampiezza_start();
+//extern bool verify_consistency();
 
 #ifdef DEBUG
 extern unsigned long long *node_allocated, *size_allocated;
