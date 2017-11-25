@@ -80,7 +80,7 @@ static unsigned int max_level;
 
 volatile int init_phase = 0;
 
-extern int number_of_processes;
+//extern int number_of_processes;
 extern taken_list* takenn;
 
 static void init_tree(unsigned long number_of_nodes);
@@ -96,6 +96,9 @@ static void internal_free_node2(unsigned int n, unsigned int upper_bound);
 nbint  *size_allocated;
 unsigned long long *node_allocated;
 #endif
+
+__thread unsigned int tid=-1;
+unsigned int partecipants=0;
 
 /*******************************************************************
                 INIT NB-BUDDY SYSTEM
@@ -261,6 +264,10 @@ void* request_memory(unsigned byte){
     unsigned int starting_node, last_node, actual, started_at, failed_at_node;
     bool restarted = false;
     unsigned int leaf_position;
+        
+    if(tid == -1){
+		tid = __sync_fetch_and_add(&partecipants, 1);
+     }
 
 
     if( byte > MAX_ALLOCABLE_BYTE || byte > overall_memory_size)
@@ -277,13 +284,8 @@ void* request_memory(unsigned byte){
     //last_node      = lchild_idx_by_ptr(&tree[starting_node])-1;    //last node for this level
     last_node      = lchild_idx_by_idx(starting_node)-1;    //last node for this level
 
-//    actual = myid;                   //actual è il posto in cui iniziare a cercare
-//    if(last_node - starting_node != 0)
-//        actual = actual % (last_node - starting_node);
-//    else
-//        actual = 0;
-//    actual = starting_node + actual;
-    actual = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
+	actual = started_at = starting_node + (tid) * ((last_node - starting_node + 1)/partecipants);
+	//actual = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
         
     started_at = actual;
     

@@ -116,7 +116,7 @@ unsigned long long overall_memory_pages;
 unsigned long long overall_height;
 unsigned int number_of_leaves;
 unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
-unsigned int number_of_processes;
+//unsigned int number_of_processes;
 unsigned int number_of_container;
 static volatile unsigned long long levels = NUM_LEVELS;
 void* overall_memory;
@@ -125,7 +125,8 @@ void* overall_memory;
 unsigned long long *node_allocated, *size_allocated;
 #endif
 
-
+__thread unsigned int tid=-1;
+unsigned int partecipants=0;
 
 /* DICHIARAZIONE DI FUNZIONI *//*---------------------------------------------------------------------------------------------*/
 
@@ -253,6 +254,10 @@ void* request_memory(unsigned int byte){
 	bool restarted = false; 
 	unsigned long long started_at, actual, starting_node, last_node, failed_at, leaf_position;
 	
+    if(tid == -1){
+		tid = __sync_fetch_and_add(&partecipants, 1);
+    }
+	
 	if(byte > MAX_ALLOCABLE_BYTE)
 		return NULL;
 		
@@ -266,7 +271,8 @@ void* request_memory(unsigned int byte){
 	
 	
 	//actual è il posto in cui iniziare a cercare
-	actual = started_at = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
+	actual = started_at = starting_node + (tid) * ((last_node - starting_node + 1)/partecipants);
+	//actual = started_at = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
    
 	//quando faccio un giro intero ritorno NULL
 	do{
