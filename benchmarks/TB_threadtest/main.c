@@ -16,51 +16,68 @@
 #define ITER 465
 #define SERBATOIO_DIM (16*8192)
 
+
 #ifndef ALLOC_SIZE
 #define ALLOC_SIZE 8
 #endif
 
+
+//__thread taken_list* takenn;
+//__thread taken_list* takenn_serbatoio;
+
+__thread void *addrs[100000];
+
 unsigned int number_of_processes;
 //unsigned int master;
-unsigned int mypid;
 unsigned int pcount = 0;
-__thread unsigned int myid; //__thread unsigned int myid=0;
+__thread unsigned int myid=0;
 
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
 static nbint *volatile memory;
 unsigned int *start;
 
 
-
 void parallel_try(){
-	unsigned int i, tentativi;
+	unsigned int i, j, tentativi;
+	unsigned int scelta_lvl;
+	unsigned int tmp = 0;
+	
 	
 	void *obt;
+	//taken_list_elem *t, *runner, *chosen;
 	
-	tentativi = ops[myid] = 10000000 / number_of_processes ;
-	i = 0;
+	scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
+	tentativi = ops[myid] = 10000 / number_of_processes ;
+	i = j = 0;
 
 	srand(17*myid);
 	
-	int count = 0;
-	for(i=0;i<tentativi;i++){
-		obt = request_memory(ALLOC_SIZE);
-		if (obt==NULL){
-			failures[myid]++;
-			continue;
+	for(j=0; j<100; j++){
+		
+		//printf("[%u] all:%llu free:%llu fail:%llu\n", myid, allocs[myid], frees[myid], failures[myid]);
+				
+		for(i=0;i<tentativi;i++){
+			addrs[i] = request_memory(ALLOC_SIZE);
+			if(addrs[i]==NULL)
+				failures[myid]++;
+			else
+				allocs[myid]++;
 		}
-		allocs[myid]++;
-		free_node(obt);
-		frees[myid]++;
-	}	 
+		
+		for(i=0;i<tentativi;i++){
+			if(addrs[i]!=NULL){
+				free_node(addrs[i]);
+				frees[myid]++;
+			}
+		}
+	}
 }
 
 void * init_run(){
 	unsigned int j;
-	taken_list_elem* runner;
 	
 	//child code, do work and exit.
-	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// __sync_fetch_and_add(pcount, 1);//
+	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 
 	
 	while(*start==0);
 	

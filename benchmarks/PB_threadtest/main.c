@@ -19,6 +19,8 @@
 #define ALLOC_SIZE 8
 #endif
 
+__thread void *addrs[100000];
+
 unsigned int number_of_processes;
 //unsigned int master;
 unsigned int mypid;
@@ -30,7 +32,7 @@ static nbint *volatile memory;
 unsigned int *start;
 
 void parallel_try(){
-	unsigned int i, tentativi;
+	unsigned int i, j, tentativi;
 	
 	void *obt;
 	
@@ -39,22 +41,29 @@ void parallel_try(){
 
 	srand(17*myid);
 	
-	int count = 0;
-	for(i=0;i<tentativi;i++){
-		obt = request_memory(ALLOC_SIZE);
-		if (obt==NULL){
-			failures[myid]++;
-			continue;
+	for(j=0; j<100; j++){
+		
+		//printf("[%u] all:%llu free:%llu fail:%llu\n", myid, allocs[myid], frees[myid], failures[myid]);
+				
+		for(i=0;i<tentativi;i++){
+			addrs[i] = request_memory(ALLOC_SIZE);
+			if(addrs[i]==NULL)
+				failures[myid]++;
+			else
+				allocs[myid]++;
 		}
-		allocs[myid]++;
-		free_node(obt);
-		frees[myid]++;
+		
+		for(i=0;i<tentativi;i++){
+			if(addrs[i]!=NULL){
+				free_node(addrs[i]);
+				frees[myid]++;
+			}
+		}
 	}	 
 }
 
 void init_run(){
 	unsigned int j;
-	taken_list_elem* runner;
 	
 	//child code, do work and exit.
 	myid = getpid() % number_of_processes;// __sync_fetch_and_add(myid, 1);//

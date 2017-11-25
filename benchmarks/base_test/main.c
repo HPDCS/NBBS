@@ -183,7 +183,7 @@ int main(int argc, char**argv){
 	srand(17);
 	int status, local_pid;
 	
-	if(argc!=3){
+	if(argc!=2){
 		printf("usage: ./a.out <number of threads> <number of levels>\n");
 		exit(0);
 	}
@@ -193,7 +193,7 @@ int main(int argc, char**argv){
 	int i=0;
 
 	number_of_processes=atoi(argv[1]);
-	unsigned long requested = atol(argv[2]);
+	//unsigned long requested = atol(argv[2]);
 	
 
 	for(i=0; i<number_of_processes; i++){
