@@ -1,5 +1,5 @@
 GIT_BENCH = cache-scratch  cache-thrash  common  larson  linux-scalability  phong threadtest
-SKIP = numa_base_test/ common/ larson/ cache-scratch/ unit_test/ threadtest/ cache-thrash/
+SKIP = numa_base_test/ common/ cache-scratch/ unit_test/ threadtest/ cache-thrash/
 DIRS = $(wildcard */)
 
 #  || exit 1;\
