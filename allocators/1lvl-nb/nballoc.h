@@ -19,7 +19,7 @@
 
 //#define DEBUG
 
-typedef unsigned int nbint; 
+typedef unsigned long long nbint; 
 
 
 typedef struct _node{
@@ -43,7 +43,7 @@ typedef struct _taken_list{
 
 
 extern void write_on_a_file_in_ampiezza_start();
-extern unsigned myid;
+extern __thread unsigned myid;
 extern unsigned int number_of_leaves;
 
 void free_node(void* n);

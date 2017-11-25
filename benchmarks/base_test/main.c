@@ -19,8 +19,9 @@ static taken_list* takenn_serbatoio;
 
 unsigned int number_of_processes;
 unsigned int master;
+unsigned int pcount = 0;
 unsigned int mypid;
-unsigned int myid;
+__thread unsigned int myid;
 
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
 static nbint *volatile memory;

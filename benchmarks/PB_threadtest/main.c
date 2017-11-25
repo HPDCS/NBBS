@@ -22,7 +22,8 @@
 unsigned int number_of_processes;
 //unsigned int master;
 unsigned int mypid;
-unsigned int myid; //__thread unsigned int myid=0;
+unsigned int pcount = 0;
+__thread unsigned int myid; //__thread unsigned int myid=0;
 
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
 static nbint *volatile memory;

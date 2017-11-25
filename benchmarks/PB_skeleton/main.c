@@ -21,7 +21,8 @@ static taken_list* takenn_serbatoio; //__thread taken_list* takenn_serbatoio
 unsigned int number_of_processes;
 //unsigned int master;
 unsigned int mypid;
-unsigned int myid; //__thread unsigned int myid=0;
+unsigned int pcount = 0;
+__thread unsigned int myid; //__thread unsigned int myid=0;
 
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
 static nbint *volatile memory;
@@ -107,7 +108,7 @@ void parallel_try(){
 	i = j = 0;
 
 
-	srand(17);
+	srand(17*myid);
 	
 	int count = 0;
 	for(i=0;i<tentativi;i++){

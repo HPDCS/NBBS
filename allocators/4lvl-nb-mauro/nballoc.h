@@ -53,7 +53,7 @@ typedef struct _taken_list{
 }taken_list;
 
 
-extern unsigned int myid;
+extern __thread unsigned int myid;
 extern unsigned int number_of_leaves;
 extern unsigned int number_of_processes;
 

@@ -22,7 +22,7 @@ __thread taken_list* takenn_serbatoio;
 unsigned int number_of_processes;
 //unsigned int master;
 unsigned int pcount = 0;
-unsigned int myid=0;
+__thread unsigned int myid=0;
 
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
 static nbint *volatile memory;
@@ -107,7 +107,7 @@ void parallel_try(){
 	i = j = 0;
 
 
-	srand(17);
+	srand(17*myid);
 	
 	int count = 0;
 	for(i=0;i<tentativi;i++){
@@ -140,7 +140,7 @@ void * init_run(){
 	taken_list_elem* runner;
 	
 	//child code, do work and exit.
-	myid = getpid() % number_of_processes;// __sync_fetch_and_add(pcount, 1);//
+	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 
 
 	takenn = malloc(sizeof(taken_list));
 	takenn->head = NULL;

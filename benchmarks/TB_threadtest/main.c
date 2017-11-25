@@ -23,7 +23,8 @@
 unsigned int number_of_processes;
 //unsigned int master;
 unsigned int mypid;
-unsigned int myid; //__thread unsigned int myid=0;
+unsigned int pcount = 0;
+__thread unsigned int myid; //__thread unsigned int myid=0;
 
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
 static nbint *volatile memory;
@@ -59,7 +60,7 @@ void * init_run(){
 	taken_list_elem* runner;
 	
 	//child code, do work and exit.
-	myid = getpid() % number_of_processes;// __sync_fetch_and_add(pcount, 1);//
+	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// __sync_fetch_and_add(pcount, 1);//
 	
 	while(*start==0);
 	

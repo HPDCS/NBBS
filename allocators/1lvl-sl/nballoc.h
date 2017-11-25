@@ -21,7 +21,7 @@
 
 //#define DEBUG
 
-typedef unsigned int nbint; 
+typedef unsigned long long nbint; 
 
 #define BD_SPIN_LOCK 1
 
@@ -57,8 +57,8 @@ typedef struct _taken_list{
 }taken_list;
 
 
-extern void write_on_a_file_in_ampiezza_start();
-extern unsigned myid;
+//extern void write_on_a_file_in_ampiezza_start();
+extern __thread unsigned myid;
 extern unsigned int number_of_leaves;
 
 void free_node(void* n);
