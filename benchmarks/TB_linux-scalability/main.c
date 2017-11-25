@@ -16,38 +16,13 @@
 #define ITER 465
 #define SERBATOIO_DIM (16*8192)
 
-#ifndef MIN_ALLOCABLE_BYTES
-#define MIN_ALLOCABLE_BYTES 8ULL //(2KB) numero minimo di byte allocabili
-#endif
-#ifndef MAX_ALLOCABLE_BYTE
-#define MAX_ALLOCABLE_BYTE  16384ULL //(16KB)
-#endif
-#ifndef NUM_LEVELS
-#define NUM_LEVELS  20ULL //(16KB)
+#ifndef ALLOC_SIZE
+#define ALLOC_SIZE 8
 #endif
 
 
-
-typedef struct _nodE{
-    volatile unsigned long long val; //per i bit etc;
-    char pad[48];
-    unsigned int mem_start; //spiazzamento all'interno dell'overall_memory
-    unsigned int mem_size;
-    unsigned int pos; //posizione all'interno dell'array "tree"
-} nodE;
-
-typedef struct _takeN_list_elem{
-    struct _takeN_list_elem* next;
-    nodE* elem;
-}takeN_list_elem;
-
-typedef struct _takeN_list{
-    struct _takeN_list_elem* head;
-    unsigned number;
-}takeN_list;
-
-__thread takeN_list* takenn;
-__thread takeN_list* takenn_serbatoio;
+//__thread taken_list* takenn;
+//__thread taken_list* takenn_serbatoio;
 
 unsigned int number_of_processes;
 //unsigned int master;
@@ -58,140 +33,39 @@ static unsigned long long *volatile failures, *volatile allocs, *volatile frees,
 static unsigned long long *volatile memory;
 unsigned int *start;
 
-void * do_alloca(unsigned long long size) __attribute__((used));
-void * do_alloca(unsigned long long size){
-	void * addr;
-	takeN_list_elem *t;
-	
-	if(takenn_serbatoio->number==0){
-		printf("Allocazioni %llu free %llu allocazioni-free=%llu\n", allocs[myid], frees[myid], allocs[myid] - frees[myid]);
-		exit(0);
-	}
-	
-	addr = malloc(size);//request_memory(size);
-	if (addr==NULL){
-		failures[myid]++;
-		return NULL;
-	}
-
-	allocs[myid]++;
-	memory[myid]+=size;
-	
-	//estraggo un nodo dal serbatoio
-	t = takenn_serbatoio->head;
-	takenn_serbatoio->head = takenn_serbatoio->head->next;
-	takenn_serbatoio->number--;
-	//inserisco il nodo tra quelli presi
-	t->elem = addr;
-	t->elem->mem_size = size;
-	t->next = takenn->head;;
-	takenn->head = t;
-	takenn->number++;
-	
-	return addr;
-}
-void libera(unsigned long long scelta) __attribute__((used));
-void libera(unsigned long long scelta){
-	takeN_list_elem *runner, *chosen;
-
-	if(scelta == 0){
-		scelta = rand_lim((takenn->number)-1);
-	}
-	frees[myid]++;
-	
-	if(scelta==0){
-		free_node(takenn->head->elem);
-		scelta = (takenn->head->elem->mem_size);
-		chosen = takenn->head;
-		takenn->head = takenn->head->next;
-	}
-	else{
-		runner = takenn->head;
-		for(unsigned int j=0;j<scelta-1;j++)
-			runner = runner->next;
-		
-		chosen = runner->next;
-		free_node(chosen->elem);
-		scelta = (chosen->elem->mem_size);
-		runner->next = runner->next->next;
-	}
-	memory[myid]-=scelta;
-	takenn->number--;
-	chosen->next = takenn_serbatoio->head;
-	takenn_serbatoio->head = chosen;
-	takenn_serbatoio->number++;
-}
-
 
 void parallel_try(){
-	unsigned int i, j, tentativi;
-	unsigned long long scelta;
-	unsigned int scelta_lvl;
-	unsigned int tmp = 0;
+	unsigned int i, tentativi;
 	
 	void *obt;
-	//takeN_list_elem *t, *runner, *chosen;
 	
-	scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
 	tentativi = ops[myid] = 10000000 / number_of_processes ;
-	i = j = 0;
-
+	i = 0;
 
 	srand(17*myid);
 	
-	int count = 0;
 	for(i=0;i<tentativi;i++){
-
-		scelta = rand();
-		//ALLOC
-		if(scelta >=((RAND_MAX/10)*5)){ 		//if(scelta > ((RAND_MAX/10)*takenn->number)){
-
-			scelta = (MIN_ALLOCABLE_BYTES) << (rand_lim(scelta_lvl)); //<<rimpiazza con un exp^(-1)
-			if(scelta==0)
-				scelta = MIN_ALLOCABLE_BYTES;
-			scelta = upper_power_of_two(scelta);
-
-			obt = do_alloca(scelta);
+		obt = request_memory(ALLOC_SIZE);
+		if (obt==NULL){
+			failures[myid]++;
+			continue;
 		}
-		//FREE
-		else{
-			if(takenn->number==0){
-				i--;
-				continue;
-			}
-			libera(0);
-		}
+		allocs[myid]++;
+		free_node(obt);
+		frees[myid]++;
 	}
-	 
 }
 
 void * init_run(){
 	unsigned int j;
-	takeN_list_elem* runner;
 	
 	//child code, do work and exit.
-	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 
-
-	takenn = malloc(sizeof(takeN_list));
-	takenn->head = NULL;
-	takenn->number = 0;
-	
-	takenn_serbatoio = malloc(sizeof(takeN_list));
-	takenn_serbatoio->number = SERBATOIO_DIM;
-	takenn_serbatoio->head = malloc(sizeof(takeN_list_elem));
-	runner = takenn_serbatoio->head;
-	
-	for(j=0;j<SERBATOIO_DIM;j++){
-		runner->next = malloc(sizeof(takeN_list_elem));
-		runner = runner->next;
-	}
-	
+	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 	
 	
 	while(*start==0);
 	
 	parallel_try();
 	
-	free(takenn);
 	pthread_exit(NULL);
 }
 
@@ -270,7 +144,7 @@ int main(int argc, char**argv){
 	printf("............................\n");	
 	printf("total failures:   %10llu\n", total_fail);
 #ifdef DEBUG
-	printf("total nodEs alloc:%10llu\n", *nodE_allocated);
+	printf("total nodes alloc:%10llu\n", *node_allocated);
 	printf("total memo alloc: %10llu Bytes\n", *size_allocated);
 	//write_on_a_file_in_ampiezza();
 #endif

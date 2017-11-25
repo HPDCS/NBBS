@@ -33,7 +33,7 @@ unsigned int pcount = 0;
 __thread unsigned int myid=0;
 
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
-static nbint *volatile memory;
+static unsigned long long *volatile memory;
 unsigned int *start;
 
 
@@ -93,7 +93,7 @@ __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
 	allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	frees = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	ops = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	memory = mmap(NULL, sizeof(nbint) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	memory = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	start = mmap(NULL, sizeof(unsigned int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	*start = 0;
 	for(unsigned int i=0; i<number_of_processes; i++){
@@ -106,7 +106,7 @@ int main(int argc, char**argv){
 	int status, local_pid, i=0;
 	unsigned long long exec_time;
 	unsigned long long total_fail = 0, total_alloc = 0, total_free = 0, total_ops = 0;
-	nbint total_mem = 0;
+	unsigned long long total_mem = 0;
 	
 	srand(17);
 	
