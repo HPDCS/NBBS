@@ -2,8 +2,8 @@
 
 THREAD_list="8"		#numero di thread
 RUN_list="1"					#lista del numero di run
-ALLOC_list="hoard 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc "
-SIZE_list="8 128"
+ALLOC_list="4lvl-nb 1lvl-nb" #"hoard 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc "
+SIZE_list="8"
 
 
 MAX_RETRY="10"
