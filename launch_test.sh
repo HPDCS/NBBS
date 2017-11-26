@@ -1,7 +1,7 @@
 #!/bin/bash
 
-THREAD_list="8"		#numero di thread
-RUN_list="1 4 8 16 32"					#lista del numero di run
+THREAD_list="1 2 4 8 16 32"		#numero di thread
+RUN_list="1 2"					#lista del numero di run
 #ALLOC_list="hoard 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
 ALLOC_list="4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
 SIZE_list="8 128"
@@ -18,9 +18,10 @@ mkdir results
 
 mkdir ${FOLDER}
 
-for size in $SIZE_list
+
+for run in $RUN_list
 do
-	for run in $RUN_list
+	for size in $SIZE_list
 	do
 		for alloc in $ALLOC_list 
 		do
@@ -33,6 +34,8 @@ do
 				OUT2="${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R$run"; touch $OUT2
 				OUT3="${FOLDER}/LRSN-$alloc-sz$size-TH$threads-R$run"; touch $OUT3
 				str="b"
+				
+				echo TBLS-$alloc sz:$size TH:$threads R:$run --- $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M)
 
 				if [ `ls -l $OUT1 | awk '{print $5}'` -eq 0 ]
 				then
@@ -41,12 +44,16 @@ do
 					str="a"
 				fi
 				
+				echo TBTT-$alloc sz:$size TH:$threads R:$run --- $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M)
+				
 				if [ `ls -l $OUT2 | awk '{print $5}'` -eq 0 ]
 				then
 					echo $EX2 TO $OUT2
 					$EX2 > $OUT2
 					str="a"
 				fi
+				
+				echo LRSN-$alloc sz:$size TH:$threads R:$run --- $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M)
 				
 				if [ `ls -l $OUT3 | awk '{print $5}'` -eq 0 ]
 				then
