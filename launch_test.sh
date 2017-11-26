@@ -2,7 +2,7 @@
 
 THREAD_list="8"		#numero di thread
 RUN_list="1"					#lista del numero di run
-ALLOC_list="4lvl-nb 1lvl-nb" #"hoard 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc "
+ALLOC_list="4lvl-nb" #"4lvl-nb 1lvl-nb" #"hoard 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc "
 SIZE_list="8"
 
 
@@ -25,7 +25,7 @@ do
 		do
 			for threads in $THREAD_list
 			do
-				EX1="./benchmarks/TB_linux-scalability/TB_linux-scalability-$alloc $threads"
+				EX1="./benchmarks/TB_linux-scalability/TB_linux-scalability-$alloc $threads $size"
 				EX2="./benchmarks/TB_threadtest/TB_threadtest-$alloc $threads $size"
 				EX3="./benchmarks/larson/larson-$alloc 10 `echo $((size-1))` $size 1000 10000 1 $threads"
 				OUT1="${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R$run"; touch $OUT1

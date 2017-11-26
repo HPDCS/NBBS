@@ -274,6 +274,7 @@ static inline bool IS_OCCUPIED(unsigned long long val, unsigned int pos){
  @return l'indirizzo di memoria del nodo utilizzato per soddisfare la richiesta; NULL in caso di fallimento
  */
 void* bd_xx_malloc(size_t byte){
+    printf("%s\n", "4sl");
 	bool restarted = false; 
 	unsigned long long started_at, actual, starting_node, last_node, failed_at, leaf_position;
 	
