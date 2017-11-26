@@ -34,19 +34,21 @@ static unsigned long long *volatile failures, *volatile allocs, *volatile frees,
 static unsigned long long *volatile memory;
 unsigned int *start;
 
+unsigned long long fixed_size;
+
 
 void parallel_try(){
 	unsigned int i, tentativi;
 	
 	void *obt;
 	
-	tentativi = ops[myid] = 10000000 / number_of_processes ;
+	tentativi = ops[myid] = 100000000 / number_of_processes ;
 	i = 0;
 
 	srand(17*myid);
 	
 	for(i=0;i<tentativi;i++){
-		obt = TO_BE_REPLACED_MALLOC(ALLOC_SIZE);
+		obt = TO_BE_REPLACED_MALLOC(fixed_size);
 		if (obt==NULL){
 			failures[myid]++;
 			continue;
@@ -95,11 +97,12 @@ int main(int argc, char**argv){
 	
 	srand(17);
 	
-	if(argc!=2){
+	if(argc!=3){
 		printf("usage: ./a.out <number of threads>\n");
 		exit(0);
 	}
 	number_of_processes=atoi(argv[1]);
+	fixed_size = atoll(argv[2]);
 	
 	pthread_t p_tid[number_of_processes];    
 	for(i=0; i<number_of_processes; i++){

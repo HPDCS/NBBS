@@ -20,7 +20,6 @@
 #define ALLOC_SIZE 8
 #endif
 
-
 //__thread taken_list* takenn;
 //__thread taken_list* takenn_serbatoio;
 
@@ -34,6 +33,8 @@ __thread unsigned int myid=0;
 static unsigned long long *volatile failures, *volatile allocs, *volatile frees, *volatile ops;
 static unsigned long long *volatile memory;
 unsigned int *start;
+
+unsigned long long fixed_size;
 
 
 void parallel_try(){
@@ -51,14 +52,15 @@ void parallel_try(){
 
 	srand(17*myid);
 	
-	for(j=0; j<100; j++){
+	for(j=0; j<10000; j++){
 		
 		//printf("[%u] all:%llu free:%llu fail:%llu\n", myid, allocs[myid], frees[myid], failures[myid]);
 				
 		for(i=0;i<tentativi;i++){
-			addrs[i] = TO_BE_REPLACED_MALLOC(ALLOC_SIZE);
-			if(addrs[i]==NULL)
+			addrs[i] = TO_BE_REPLACED_MALLOC(fixed_size);
+			if(addrs[i]==NULL){
 				failures[myid]++;
+			}
 			else
 				allocs[myid]++;
 		}
@@ -110,11 +112,12 @@ int main(int argc, char**argv){
 	
 	srand(17);
 	
-	if(argc!=2){
+	if(argc!=3){
 		printf("usage: ./a.out <number of threads>\n");
 		exit(0);
 	}
-	number_of_processes=atoi(argv[1]);
+	number_of_processes = atoi(argv[1]);
+	fixed_size = atoll(argv[2]);
 	
 	pthread_t p_tid[number_of_processes];    
 	for(i=0; i<number_of_processes; i++){
