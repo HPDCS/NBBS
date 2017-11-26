@@ -1,7 +1,8 @@
 DIRS := $(wildcard */)
+SKIP = hoard/
 
 all: 
-	@$(foreach dir, $(DIRS),\
+	@$(foreach dir, $(filter-out $(SKIP), $(DIRS) ) ,\
 	echo;\
 	echo \#\#\#\# COMPILING $(dir) \#\#\#\# ;\
 	$(MAKE) -C $(dir) || exit 1;\
