@@ -274,7 +274,6 @@ static inline bool IS_OCCUPIED(unsigned long long val, unsigned int pos){
  @return l'indirizzo di memoria del nodo utilizzato per soddisfare la richiesta; NULL in caso di fallimento
  */
 void* bd_xx_malloc(size_t byte){
-    printf("%s\n", "4sl");
 	bool restarted = false; 
 	unsigned long long started_at, actual, starting_node, last_node, failed_at, leaf_position;
 	
@@ -309,7 +308,8 @@ void* bd_xx_malloc(size_t byte){
             BD_UNLOCK(&(ROOT.lock));
             leaf_position = byte*(actual - overall_memory_size / byte)/MIN_ALLOCABLE_BYTES;
             free_tree[leaf_position].pos = actual;
-			return (void*)(((char*) overall_memory) + leaf_position * MIN_ALLOCABLE_BYTES);
+            //printf("leaf pos %d\n", leaf_position);
+            return ((char*) overall_memory) + leaf_position*MIN_ALLOCABLE_BYTES; //&tree[actual]
 		}
 
 		//Questo serve per evitare tutto il sottoalbero in cui ho fallito
@@ -479,8 +479,8 @@ static inline unsigned long long libera_container(unsigned long long n_pos, unsi
 
 
 void bd_xx_free(void* n){
-    char * tmp = (void*)( ((char*)n) - ((char*)overall_memory) );
-    unsigned long long pos = (unsigned long long) tmp;
+    char * tmp = ((char*)n) - (char*)overall_memory;
+    unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
     BD_LOCK(&ROOT.lock);
     internal_free_node(&tree[free_tree[pos].pos], &ROOT);
