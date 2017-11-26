@@ -235,6 +235,7 @@ int main (int argc, char *argv[])
    }
  }
 #endif
+  printf("USING ALLOCATOR: %s\n", ALLOCATOR_NAME);
 
 #if defined(_MT) || defined(_REENTRANT)
   int          min_threads, max_threads ;
@@ -245,19 +246,8 @@ int main (int argc, char *argv[])
   int          num_chunks=10000;
   long sleep_cnt;
 
-  if (argc > 7) {
-    sleep_cnt = atoi(argv[1]);
-    min_size = atoi(argv[2]);
-    max_size = atoi(argv[3]);
-    chperthread = atoi(argv[4]);
-    num_rounds = atoi(argv[5]);
-    seed = atoi(argv[6]);
-    max_threads = atoi(argv[7]);
-    min_threads = max_threads;
-    printf ("sleep = %ld, min = %d, max = %d, per thread = %d, num rounds = %d, seed = %d, max_threads = %d, min_threads = %d\n",
-	    sleep_cnt, min_size, max_size, chperthread, num_rounds, seed, max_threads, min_threads);
-    goto DoneWithInput;
-  }
+
+
 
 #if defined(_MT) || defined(_REENTRANT)
   //#ifdef _MT
@@ -270,6 +260,24 @@ int main (int argc, char *argv[])
 #else
   printf("C version (malloc and free)\n") ;
 #endif
+
+
+  if (argc > 7) {
+    sleep_cnt = atoi(argv[1]);
+    min_size = atoi(argv[2]);
+    max_size = atoi(argv[3]);
+    chperthread = atoi(argv[4]);
+    num_rounds = atoi(argv[5]);
+    seed = atoi(argv[6]);
+    max_threads = atoi(argv[7]);
+    min_threads = max_threads;
+    printf ("sleep = %ld, min = %d, max = %d, per thread = %d, num rounds = %d, seed = %d, max_threads = %d, min_threads = %d\n",
+      sleep_cnt, min_size, max_size, chperthread, num_rounds, seed, max_threads, min_threads);
+    goto DoneWithInput;
+  }
+
+
+
   printf("runtime (sec): ") ;
   scanf ("%ld", &sleep_cnt);
 

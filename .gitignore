@@ -3,5 +3,15 @@
 *.so
 *.d
 *.o
+tst-independent-alloc
+t-test1
+t-test2
 base_test-*-*
+TB_threadtest-*
 debug/*
+*-libc
+*-nb
+*-sl
+*-ptmalloc3
+*-hoard
+results/

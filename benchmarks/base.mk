@@ -23,12 +23,12 @@ $(TARGET)-libc: $(TARGET)-libc.o  #$(BASE_ALLOCATORS)/%/nballoc.o
 
 $(TARGET)-%-nb: main.c
 	@echo compiling for $(TARGET)-libc.o
-	$(CC) main.c ../../allocators/$*-nb/nballoc.c ../../utils/utils.c $(CFLAGS)  -o $(TARGET)-$*-nb -DALLOCATOR=$*-nb -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)' -lpthread
+	$(CC) main.c ../../allocators/$*-nb/nballoc.c ../../utils/utils.c $(CFLAGS)  -o $(TARGET)-$*-nb -DALLOCATOR=$*-nb -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)' -lpthread -D'ALLOCATOR_NAME="$*-nb"'
 	#$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-libc.o -DALLOCATOR=libc -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)'
 
 $(TARGET)-%-sl: main.c
 	@echo compiling for $(TARGET)-libc.o
-	$(CC) main.c ../../allocators/$*-sl/nballoc.c ../../utils/utils.c $(CFLAGS)  -o $(TARGET)-$*-sl -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)' -lpthread
+	$(CC) main.c ../../allocators/$*-sl/nballoc.c ../../utils/utils.c $(CFLAGS)  -o $(TARGET)-$*-sl -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)' -lpthread -D'ALLOCATOR_NAME="$*-sl"'
 	#$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-libc.o -DALLOCATOR=libc -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)'
 
 
@@ -38,20 +38,20 @@ $(TARGET)-%: $(TARGET)-%.o  #$(BASE_ALLOCATORS)/%/nballoc.o
 
 $(TARGET)-libc.o: main.c
 	@echo compiling for $(TARGET)-libc.o
-	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-libc.o -DALLOCATOR=libc -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)'
+	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-libc.o -DALLOCATOR=libc -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)' -D'ALLOCATOR_NAME="libc"'
 
 
 $(TARGET)-%-nb.o: main.c 
 	@echo compiling for $@
-	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-$*-nb.o -DALLOCATOR=$*-nb -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -L$(BASE_ALLOCATORS)/$*-nb -l$*-nb
+	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-$*-nb.o -DALLOCATOR=$*-nb -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -L$(BASE_ALLOCATORS)/$*-nb -l$*-nb -D'ALLOCATOR_NAME="$*-nb"'
 
 $(TARGET)-%-sl.o: main.c 
 	@echo compiling for $@
-	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-$*-sl.o -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -L$(BASE_ALLOCATORS)/$*-sl -l$*-sl
+	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-$*-sl.o -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -L$(BASE_ALLOCATORS)/$*-sl -l$*-sl -D'ALLOCATOR_NAME="$*-sl"'
 
 $(TARGET)-%.o: main.c 
 	@echo compiling for $(TARGET)-$*.o
-	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-$*.o -DALLOCATOR=$* -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)'
+	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-$*.o -DALLOCATOR=$* -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)' -D'ALLOCATOR_NAME="$*"'
 
 
 

@@ -87,6 +87,7 @@ __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
 
 
 int main(int argc, char**argv){
+  printf("USING ALLOCATOR: %s\n", ALLOCATOR_NAME);
 	int status, local_pid, i=0;
 	unsigned long long exec_time;
 	unsigned long long total_fail = 0, total_alloc = 0, total_free = 0, total_ops = 0;
