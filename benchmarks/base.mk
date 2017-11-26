@@ -7,7 +7,7 @@ MY_ALLOCATORS = 1lvl-nb 1lvl-sl 4lvl-nb
 
 CC=gcc
 CFLAGS= -I$(BASE_ALLOCATORS)/$* -I../../utils 
-FLAGS= -O3 -g -Wall -I../../utils -MMD -MP -MF $*.d
+#FLAGS= -O3 -g -Wall -I../../utils -MMD -MP -MF $*.d
 LIBRARY = -lpthread
 
 .SECONDARY:
@@ -22,13 +22,23 @@ $(TARGET)-libc: $(TARGET)-libc.o
 	$(CC) $(INTERMEDIATE_OBJS_PATH)/$(TARGET)-libc.o    -o $(TARGET)-libc $(LIBRARY) -L$(BASE_ALLOCATORS)/$*
 
 
+#$(TARGET)-%-nb: main.c
+#	@echo compiling for $@
+#	$(CC) $(FLAGS) main.c ../../allocators/$*-nb/nballoc.c ../../utils/utils.c  -I$(BASE_ALLOCATORS)/$*-nb -I../../utils   -o $(TARGET)-$*-nb -DALLOCATOR=$*-nb -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-nb"'
+
+#$(TARGET)-%-sl: main.c
+#	@echo compiling for $@
+#	$(CC) $(FLAGS)  main.c ../../allocators/$*-sl/nballoc.c ../../utils/utils.c  -I$(BASE_ALLOCATORS)/$*-sl -I../../utils -o $(TARGET)-$*-sl -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-sl"'
+
 $(TARGET)-%-nb: main.c
 	@echo compiling for $@
-	$(CC) $(FLAGS) main.c ../../allocators/$*-nb/nballoc.c ../../utils/utils.c  -I$(BASE_ALLOCATORS)/$*-nb -I../../utils   -o $(TARGET)-$*-nb -DALLOCATOR=$*-nb -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-nb"'
+	$(CC) $(FLAGS) main.c  -I../../utils  -L$(abspath ../../allocators/$*-nb) -l$*-nb  -o $(TARGET)-$*-nb -DALLOCATOR=$*-nb -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-nb"'
 
 $(TARGET)-%-sl: main.c
 	@echo compiling for $@
-	$(CC) $(FLAGS)  main.c ../../allocators/$*-sl/nballoc.c ../../utils/utils.c  -I$(BASE_ALLOCATORS)/$*-sl -I../../utils -o $(TARGET)-$*-sl -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-sl"'
+	$(CC) $(FLAGS) main.c  -I../../utils  -L$(abspath ../../allocators/$*-sl) -l$*-sl -o $(TARGET)-$*-sl -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-sl"'
+
+
 
 
 $(TARGET)-%: $(TARGET)-%.o  #$(BASE_ALLOCATORS)/%/nballoc.o
