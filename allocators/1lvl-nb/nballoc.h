@@ -46,8 +46,8 @@ extern void write_on_a_file_in_ampiezza_start();
 extern __thread unsigned myid;
 extern unsigned int number_of_leaves;
 
-void free_node(void* n);
-void* request_memory(unsigned pages);
+void  bd_xx_free(void* n);
+void* bd_xx_malloc(size_t pages);
 
 #ifdef DEBUG
 extern unsigned long long *node_allocated; 

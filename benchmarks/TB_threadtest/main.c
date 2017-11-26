@@ -7,7 +7,6 @@
 #include <time.h>
 #include <pthread.h>
 #include <sys/wait.h>
-#include "nballoc.h"
 #include "utils.h"
 #include "timer.h"
 
@@ -39,14 +38,14 @@ unsigned int *start;
 
 void parallel_try(){
 	unsigned int i, j, tentativi;
-	unsigned int scelta_lvl;
+	//unsigned int scelta_lvl;
 	unsigned int tmp = 0;
 	
 	
 	void *obt;
 	//taken_list_elem *t, *runner, *chosen;
 	
-	scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
+	//scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
 	tentativi = ops[myid] = 10000 / number_of_processes ;
 	i = j = 0;
 
@@ -57,7 +56,7 @@ void parallel_try(){
 		//printf("[%u] all:%llu free:%llu fail:%llu\n", myid, allocs[myid], frees[myid], failures[myid]);
 				
 		for(i=0;i<tentativi;i++){
-			addrs[i] = request_memory(ALLOC_SIZE);
+			addrs[i] = TO_BE_REPLACED_MALLOC(ALLOC_SIZE);
 			if(addrs[i]==NULL)
 				failures[myid]++;
 			else
@@ -66,7 +65,7 @@ void parallel_try(){
 		
 		for(i=0;i<tentativi;i++){
 			if(addrs[i]!=NULL){
-				free_node(addrs[i]);
+				TO_BE_REPLACED_FREE(addrs[i]);
 				frees[myid]++;
 			}
 		}

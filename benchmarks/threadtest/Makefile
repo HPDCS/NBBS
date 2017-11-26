@@ -1,9 +1,6 @@
+TEST = $(notdir $(shell pwd))
 include ../Makefile.inc
 
-TARGET = threadtest
+CXXFLAGS = -std=c++11
 
-$(TARGET): threadtest.cpp
-	$(CXX) -std=c++11 $(CXXFLAGS) threadtest.cpp -o $(TARGET) -lpthread
-
-clean:
-	rm -f $(TARGET)
+include ../base_suite_cpp.mk

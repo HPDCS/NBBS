@@ -7,7 +7,8 @@
 #include <time.h>
 #include <pthread.h>
 #include <sys/wait.h>
-#include "nballoc.h"
+#include <string.h>
+//#include "nballoc.h"
 #include "utils.h"
 #include "timer.h"
 
@@ -45,13 +46,13 @@ void parallel_try(){
 	srand(17*myid);
 	
 	for(i=0;i<tentativi;i++){
-		obt = request_memory(ALLOC_SIZE);
+		obt = TO_BE_REPLACED_MALLOC(ALLOC_SIZE);
 		if (obt==NULL){
 			failures[myid]++;
 			continue;
 		}
 		allocs[myid]++;
-		free_node(obt);
+		TO_BE_REPLACED_FREE(obt);
 		frees[myid]++;
 	}
 }

@@ -136,7 +136,7 @@ static void marca(node* n, node* upper_bound);
 static bool IS_OCCUPIED(unsigned long long, unsigned);
 static unsigned long long check_parent(node* n);static void smarca(node* n, node* upper_bound);
 static void internal_free_node(node* n, node* upper_bound);
-void* request_memory(unsigned int pages);
+void* bd_xx_malloc(size_t pages);
 
 
 
@@ -203,7 +203,7 @@ static void init(){
 	
 	init_tree(number_of_nodes);
 		
-	printf("UMA Init complete\n");
+	printf("4lvl-nb: UMA Init complete\n");
 	printf("\t Total Memory = %llu\n", overall_memory_size);
 	printf("\t Levels = %10llu\n", overall_height);
 	printf("\t Leaves = %10u\n", (number_of_nodes+1)/2);
@@ -250,7 +250,7 @@ static inline bool IS_OCCUPIED(unsigned long long val, unsigned int pos){
  @param pages: memoria richiesta dall'utente
  @return l'indirizzo di memoria del nodo utilizzato per soddisfare la richiesta; NULL in caso di fallimento
  */
-void* request_memory(unsigned int byte){
+void* bd_xx_malloc(size_t byte){
 	bool restarted = false; 
 	unsigned long long started_at, actual, starting_node, last_node, failed_at, leaf_position;
 	
@@ -454,7 +454,7 @@ static inline unsigned long long libera_container(unsigned long long n_pos, unsi
 }
 
 
-void free_node(void* n){
+void bd_xx_free(void* n){
     char * tmp = (void*)( ((char*)n) - ((char*)overall_memory) );
     unsigned long long pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;

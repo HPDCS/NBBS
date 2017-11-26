@@ -1,8 +1,7 @@
 GIT_BENCH = cache-scratch  cache-thrash  common  larson  linux-scalability  phong threadtest
-SKIP = numa_base_test/ common/ cache-scratch/ unit_test/ threadtest/ cache-thrash/
+SKIP = common/ TB_skeleton/ 
 DIRS = $(wildcard */)
 
-#  || exit 1;\
 
 all:
 	@$(foreach dir, $(filter-out $(SKIP), $(DIRS) ) ,\

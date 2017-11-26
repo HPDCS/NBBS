@@ -1,9 +1,3 @@
+TEST = $(notdir $(shell pwd))
 include ../Makefile.inc
-
-TARGET = phong
-
-$(TARGET):
-	$(CC) $(CCFLAGS) $(TARGET).c -o $(TARGET) -lpthread
-
-clean:
-	rm -f $(TARGET)
+include ../base_suite_c.mk

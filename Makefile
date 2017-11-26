@@ -1,4 +1,4 @@
-DIRS := allocators utils benchmarks
+DIRS :=  utils allocators benchmarks
 
 all: 
 	@$(foreach dir, $(DIRS),\

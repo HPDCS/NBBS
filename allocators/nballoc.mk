@@ -22,8 +22,9 @@ ifdef NUM_LEVELS
 FLAGS :=$(FLAGS) -DNUM_LEVELS=$(NUM_LEVELS)ULL
 endif
 
+TARGET = $(notdir $(shell pwd))
 
-OBJS := nballoc.o 
+OBJS := nballoc.o
 
 -include $(OBJS:.o=.d)
 
@@ -31,8 +32,12 @@ all: $(OBJS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(FLAGS) $*.c -o $*.o
+	ld -r $*.o ../../utils/utils.o -o nballoc-$(TARGET).o
+	ar rcs lib$(TARGET).a nballoc-$(TARGET).o
+
+
 	
 clean:
-	rm *.o *.d 
+	rm *.o *.d *.a
 
 .PHONY: clean

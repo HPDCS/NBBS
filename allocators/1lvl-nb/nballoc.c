@@ -189,7 +189,7 @@ void init(){
 
     
     if(first){
-        printf("UMA Init complete\n");
+        printf("1lvl-nb: UMA Init complete\n");
         printf("\t Total Memory = %lu\n", overall_memory_size);
         printf("\t Levels = %u\n", overall_height);
         printf("\t Leaves = %u\n", (number_of_nodes+1)/2);
@@ -249,7 +249,7 @@ static void destroy(){
  @return l'indirizzo di memoria allocato per la richiesta; NULL in caso di fallimento
  
  */
-void* request_memory(unsigned byte){
+void* bd_xx_malloc(size_t byte){
     unsigned int starting_node, last_node, actual, started_at, failed_at_node;
     bool restarted = false;
     unsigned int leaf_position;
@@ -475,7 +475,7 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
 }
 
 
-void free_node(void* n){
+void bd_xx_free(void* n){
     char * tmp = ((char*)n) - (char*)overall_memory;
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;

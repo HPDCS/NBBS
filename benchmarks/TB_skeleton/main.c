@@ -7,7 +7,6 @@
 #include <time.h>
 #include <pthread.h>
 #include <sys/wait.h>
-#include "nballoc.h"
 #include "utils.h"
 #include "timer.h"
 
@@ -68,7 +67,7 @@ void * do_alloca(unsigned long long size){
 		exit(0);
 	}
 	
-	addr = malloc(size);//request_memory(size);
+	addr = TO_BE_REPLACED_MALLOC(size);//request_memory(size);
 	if (addr==NULL){
 		failures[myid]++;
 		return NULL;
@@ -100,7 +99,7 @@ void libera(unsigned long long scelta){
 	frees[myid]++;
 	
 	if(scelta==0){
-		free_node(takenn->head->elem);
+		TO_BE_REPLACED_FREE(takenn->head->elem);
 		scelta = (takenn->head->elem->mem_size);
 		chosen = takenn->head;
 		takenn->head = takenn->head->next;
@@ -111,7 +110,7 @@ void libera(unsigned long long scelta){
 			runner = runner->next;
 		
 		chosen = runner->next;
-		free_node(chosen->elem);
+		TO_BE_REPLACED_FREE(chosen->elem);
 		scelta = (chosen->elem->mem_size);
 		runner->next = runner->next->next;
 	}
