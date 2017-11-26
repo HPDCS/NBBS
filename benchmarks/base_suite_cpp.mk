@@ -1,6 +1,7 @@
 include ../Makefile.inc
 
-TARGET = $(TEST)-ptmalloc3 $(TEST)-hoard $(TEST)-libc $(TEST)-1lvl-nb $(TEST)-1lvl-sl $(TEST)-4lvl-nb $(TEST)-4lvl-sl
+#TARGET = $(TEST)-ptmalloc3 $(TEST)-hoard $(TEST)-libc $(TEST)-1lvl-nb $(TEST)-1lvl-sl $(TEST)-4lvl-nb $(TEST)-4lvl-sl
+TARGET = $(TEST)-ptmalloc3  $(TEST)-libc $(TEST)-1lvl-nb $(TEST)-1lvl-sl $(TEST)-4lvl-nb $(TEST)-4lvl-sl
 ALLOCATORS_ABS_PATH = $(abspath ../../allocators)
 
 all: $(TARGET)  
