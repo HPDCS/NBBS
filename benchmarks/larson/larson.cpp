@@ -248,6 +248,7 @@ int main (int argc, char *argv[])
   unsigned     seed=12345 ;
   int          num_chunks=10000;
   long sleep_cnt;
+  int res_scan_f;
 
 
 
@@ -282,21 +283,21 @@ int main (int argc, char *argv[])
 
 
   printf("runtime (sec): ") ;
-  scanf ("%ld", &sleep_cnt);
+  res_scan_f = scanf ("%ld", &sleep_cnt);
 
   printf("chunk size (min,max): ") ;
-  scanf("%d %d", &min_size, &max_size ) ;
+  res_scan_f = scanf("%d %d", &min_size, &max_size ) ;
 #if defined(_MT) || defined(_REENTRANT)
   //#ifdef _MT
   printf("threads (min, max):   ") ; 
-  scanf("%d %d", &min_threads, &max_threads) ;
-  printf("chunks/thread:  ") ; scanf("%d", &chperthread ) ;
-  printf("no of rounds:   ") ; scanf("%d", &num_rounds ) ;
+  res_scan_f = scanf("%d %d", &min_threads, &max_threads) ;
+  printf("chunks/thread:  ") ; res_scan_f = scanf("%d", &chperthread ) ;
+  printf("no of rounds:   ") ; res_scan_f = scanf("%d", &num_rounds ) ;
   num_chunks = max_threads*chperthread ;
 #else 
-  printf("no of chunks:  ") ; scanf("%d", &num_chunks ) ;
+  printf("no of chunks:  ") ; res_scan_f = scanf("%d", &num_chunks ) ;
 #endif
-  printf("random seed:    ") ; scanf("%d", &seed) ;
+  printf("random seed:    ") ; res_scan_f = scanf("%d", &seed) ;
 
  DoneWithInput:
 
