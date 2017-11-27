@@ -89,6 +89,7 @@ void * init_run(){
 
 
 __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
+	unsigned int i;
 	number_of_processes=atoi(argv[1]);
 	failures = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -97,7 +98,7 @@ __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
 	memory = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	start = mmap(NULL, sizeof(unsigned int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	*start = 0;
-	for(unsigned int i=0; i<number_of_processes; i++){
+	for(i=0; i<number_of_processes; i++){
 		allocs[i] = frees[i] = failures[i] = ops[i] = memory[i] = 0;
 	}
 }

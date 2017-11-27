@@ -7,8 +7,6 @@
 #include <time.h>
 #include <pthread.h>
 #include <sys/wait.h>
-#include <string.h>
-//#include "nballoc.h"
 #include "utils.h"
 #include "timer.h"
 
@@ -17,13 +15,15 @@
 #define ITER 465
 #define SERBATOIO_DIM (16*8192)
 
+
 #ifndef ALLOC_SIZE
 #define ALLOC_SIZE 8
 #endif
 
-
 //__thread taken_list* takenn;
 //__thread taken_list* takenn_serbatoio;
+
+__thread void *addrs[100000];
 
 unsigned int number_of_processes;
 //unsigned int master;
@@ -34,27 +34,46 @@ static unsigned long long *volatile failures, *volatile allocs, *volatile frees,
 static unsigned long long *volatile memory;
 unsigned int *start;
 
-unsigned long long fixed_size;
-
+size_t min_size;
+size_t max_size;
+size_t gap_size;
+unsigned int taglie;
+unsigned int blocchi;
+void *** chunks;
+size_t ** sizes;
 
 void parallel_try(){
-	unsigned int i, tentativi;
+	unsigned int i, j, k, tentativi;
+	size_t scelta;
+	unsigned int tmp = 0;
+	
 	
 	void *obt;
+	//taken_list_elem *t, *runner, *chosen;
 	
+	//scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
 	tentativi = ops[myid] = 20000000 / number_of_processes ;
-	i = 0;
+	i = j = k = 0;
 
 	srand(17*myid);
+		
+	for(i=0; i< taglie; i++){
+		scelta = max_size>>i;
+		for(j=0; j<(1<<i); j++){
+			sizes[myid][k] = scelta;
+			chunks[myid][k++] = TO_BE_REPLACED_MALLOC(scelta);
+		}
+	}
 	
 	for(i=0;i<tentativi;i++){
-		obt = TO_BE_REPLACED_MALLOC(fixed_size);
-		if (obt==NULL){
+		j = rand() % blocchi;
+		TO_BE_REPLACED_FREE(chunks[myid][j]);
+		chunks[myid][j] = TO_BE_REPLACED_MALLOC(sizes[myid][j]);
+		if (chunks[myid][j]==NULL){
 			failures[myid]++;
 			continue;
 		}
 		allocs[myid]++;
-		TO_BE_REPLACED_FREE(obt);
 		frees[myid]++;
 	}
 }
@@ -63,8 +82,8 @@ void * init_run(){
 	unsigned int j;
 	
 	//child code, do work and exit.
-	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 	
-	
+	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 
+		
 	while(*start==0);
 	
 	parallel_try();
@@ -75,6 +94,28 @@ void * init_run(){
 
 __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
 	unsigned int i;
+	unsigned int tmp=0, min_lvl=0, max_lvl=0;
+
+	if(argc!=4){
+		printf("usage: ./a.out <number of threads>\n");
+		exit(0);
+	}
+	number_of_processes = atoi(argv[1]);
+	min_size = tmp = atoll(argv[2]);
+	while(tmp != 0){
+		min_lvl++;
+		tmp = tmp >> 1;
+	}
+	max_size = tmp = atoll(argv[3]);
+	while(tmp != 0){
+		max_lvl++;
+		tmp = tmp >> 1;
+	}
+	gap_size = (max_size - min_size)/8 + 1;
+	taglie = max_lvl - min_lvl + 1;
+	blocchi = (1<<taglie) - 1;
+	
+	
 	number_of_processes=atoi(argv[1]);
 	failures = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	allocs = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -82,9 +123,14 @@ __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
 	ops = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	memory = mmap(NULL, sizeof(unsigned long long) * number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	start = mmap(NULL, sizeof(unsigned int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	chunks = mmap(NULL, sizeof(void*)*number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	sizes = mmap(NULL, sizeof(void*)*number_of_processes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	
 	*start = 0;
 	for(i=0; i<number_of_processes; i++){
 		allocs[i] = frees[i] = failures[i] = ops[i] = memory[i] = 0;
+		chunks[i] = mmap(NULL, sizeof(void*)*blocchi, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+		sizes[i] = mmap(NULL, sizeof(size_t)*blocchi, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	}
 }
 
@@ -98,12 +144,8 @@ int main(int argc, char**argv){
 	
 	srand(17);
 	
-	if(argc!=3){
-		printf("usage: ./a.out <number of threads>\n");
-		exit(0);
-	}
-	number_of_processes=atoi(argv[1]);
-	fixed_size = atoll(argv[2]);
+	printf("Avvio test a taglia costante da %lu a %lu con %u taglie differenti e %u blocchi\n", min_size, max_size, taglie, blocchi);
+	
 	
 	pthread_t p_tid[number_of_processes];    
 	for(i=0; i<number_of_processes; i++){
