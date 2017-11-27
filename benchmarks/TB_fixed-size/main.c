@@ -7,6 +7,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <sys/wait.h>
+#include <string.h>
 #include "utils.h"
 #include "timer.h"
 
@@ -19,6 +20,10 @@
 #ifndef ALLOC_SIZE
 #define ALLOC_SIZE 8
 #endif
+
+
+void* bd_xx_malloc(size_t);
+void  bd_xx_free(void*);
 
 //__thread taken_list* takenn;
 //__thread taken_list* takenn_serbatoio;

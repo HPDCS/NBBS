@@ -218,7 +218,7 @@ __attribute__((constructor(500))) void pre_init() {
 	init();	
 }
 
-__attribute__((deconstructor)) void end(){
+__attribute__((destructor)) void end(){
 	//free(overall_memory);
 	//free(containers);
 	//free(tree);
@@ -667,7 +667,7 @@ void write_on_a_file_in_ampiezza(unsigned int iter){
 	fclose(f);
 
 }
-/*
+
 static void write_on_a_file_in_ampiezza_start(){
 	char filename[128];
 	int i;

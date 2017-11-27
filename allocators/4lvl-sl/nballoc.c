@@ -241,7 +241,7 @@ __attribute__((constructor(500))) void pre_init() {
 	init();	
 }
 
-__attribute__((deconstructor)) void end(){
+__attribute__((destructor)) void end(){
 	//free(overall_memory);
 	//free(containers);
 	//free(tree);
