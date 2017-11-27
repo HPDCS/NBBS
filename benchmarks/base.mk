@@ -4,7 +4,7 @@ PATH_ALLOCATORS = $(subst $(BASE_ALLOCATORS)/Makefile,  , $(wildcard $(BASE_ALLO
 #ALLOCATORS = $(filter-out Makefile nballoc.mk, $(subst $(BASE_ALLOCATORS)/,  ,  $(PATH_ALLOCATORS))) libc
 ALLOCATORS = $(filter-out Makefile nballoc.mk hoard, $(subst $(BASE_ALLOCATORS)/,  ,  $(PATH_ALLOCATORS))) libc
 INTERMEDIATE_OBJS_PATH = bin
-MY_ALLOCATORS = 1lvl-nb 1lvl-sl 4lvl-nb
+MY_ALLOCATORS = 1lvl-nb 1lvl-sl 4lvl-nb buddy-sl
 
 CC=gcc
 CFLAGS= -I$(BASE_ALLOCATORS)/$* -I../../utils 
