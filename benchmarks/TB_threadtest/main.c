@@ -57,7 +57,7 @@ void parallel_try(){
 
 	srand(17*myid);
 	
-	for(j=0; j<tentativi; j++){
+	for(j=0; j<200; j++){
 		
 		//printf("[%u] all:%llu free:%llu fail:%llu\n", myid, allocs[myid], frees[myid], failures[myid]);
 				
