@@ -7,6 +7,8 @@
 #include <time.h>
 #include <pthread.h>
 #include <sys/wait.h>
+#include <string.h>
+
 #include "utils.h"
 #include "timer.h"
 
@@ -25,6 +27,9 @@
 #define NUM_LEVELS  20ULL //(16KB)
 #endif
 
+
+void* bd_xx_malloc(size_t);
+void  bd_xx_free(void*);
 
 
 typedef struct _nodE{
