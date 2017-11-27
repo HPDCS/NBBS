@@ -11,6 +11,7 @@
 //#include "nballoc.h"
 #include "utils.h"
 #include "timer.h"
+#include <string.h>
 
 //#define MYDEBUG
 #define FAIL_END 12
@@ -21,6 +22,9 @@
 #define ALLOC_SIZE 8
 #endif
 
+
+void* bd_xx_malloc(size_t);
+void  bd_xx_free(void*);
 
 //__thread taken_list* takenn;
 //__thread taken_list* takenn_serbatoio;
@@ -53,6 +57,7 @@ void parallel_try(){
 			failures[myid]++;
 			continue;
 		}
+
 		allocs[myid]++;
 		TO_BE_REPLACED_FREE(obt);
 		frees[myid]++;

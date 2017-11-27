@@ -156,6 +156,7 @@ run_test (void * arg)
     
     for (i = 0; i < total_iterations; i++)
       {
+        printf("BNANANA\n");
 	buf[i] = malloc (request_size);
       }
     

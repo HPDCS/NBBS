@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include "utils.h"
 #include "timer.h"
+#include <string.h>
 
 //#define MYDEBUG
 #define FAIL_END 12
@@ -19,6 +20,10 @@
 #ifndef ALLOC_SIZE
 #define ALLOC_SIZE 8
 #endif
+
+
+void* bd_xx_malloc(size_t);
+void  bd_xx_free(void*);
 
 //__thread taken_list* takenn;
 //__thread taken_list* takenn_serbatoio;
@@ -52,7 +57,7 @@ void parallel_try(){
 
 	srand(17*myid);
 	
-	for(j=0; j<200; j++){
+	for(j=0; j<tentativi; j++){
 		
 		//printf("[%u] all:%llu free:%llu fail:%llu\n", myid, allocs[myid], frees[myid], failures[myid]);
 				

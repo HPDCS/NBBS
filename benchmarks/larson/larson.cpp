@@ -20,6 +20,7 @@
 #include <pthread.h>
 #endif
 
+#include <string.h>
 
 typedef void * LPVOID;
 typedef long long LONGLONG;
@@ -208,6 +209,8 @@ extern "C" {
   extern HANDLE crtheap;
 };
 #endif
+
+
 
 int main (int argc, char *argv[])
 {

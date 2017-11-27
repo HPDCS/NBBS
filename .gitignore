@@ -10,8 +10,10 @@ base_test-*-*
 TB_threadtest-*
 debug/*
 *-libc
-*-nb
-*-sl
+larson*-nb
+larson*-sl
+TB_*-nb
+TB_*-sl
 *-ptmalloc3
 *-hoard
 results/

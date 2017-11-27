@@ -1,5 +1,5 @@
 DIRS := $(wildcard */)
-SKIP = hoard/
+SKIP = hoard/ 1lvl-ll/
 
 all: 
 	@$(foreach dir, $(filter-out $(SKIP), $(DIRS) ) ,\
