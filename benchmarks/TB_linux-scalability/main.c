@@ -59,7 +59,7 @@ void parallel_try(){
 		}
 
 		allocs[myid]++;
-		TO_BE_REPLACED_FREE(obt);
+		TO_BE_REPLACED_FREE(obt,fixed_size);
 		frees[myid]++;
 	}
 }

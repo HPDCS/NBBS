@@ -72,7 +72,7 @@ void parallel_try(){
 	
 	for(i=0;i<tentativi;i++){
 		j = rand() % blocchi;
-		TO_BE_REPLACED_FREE(chunks[myid][j]);
+		TO_BE_REPLACED_FREE(chunks[myid][j],sizes[myid][j]);
 		chunks[myid][j] = TO_BE_REPLACED_MALLOC(sizes[myid][j]);
 		if (chunks[myid][j]==NULL){
 			failures[myid]++;

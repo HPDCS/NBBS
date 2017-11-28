@@ -72,7 +72,7 @@ void parallel_try(){
 		
 		for(i=0;i<tentativi;i++){
 			if(addrs[i]!=NULL){
-				TO_BE_REPLACED_FREE(addrs[i]);
+				TO_BE_REPLACED_FREE(addrs[i],fixed_size);
 				frees[myid]++;
 			}
 		}
