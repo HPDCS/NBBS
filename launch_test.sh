@@ -1,9 +1,9 @@
 #!/bin/bash
 
 THREAD_list="1 2 4 8 16 24 32"		#numero di thread
-RUN_list="1 2 3 4"					#lista del numero di run
+RUN_list="1 2"					#lista del numero di run
 #ALLOC_list="hoard 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
-ALLOC_list="buddy-sl 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
+ALLOC_list="kernel-sl"
 SIZE_list="8 128"
 
 FOLDER="results"
