@@ -70,8 +70,8 @@ typedef struct _taken_list{
 extern __thread unsigned int myid;
 extern unsigned int number_of_leaves;
 
-void  bd_xx_free(void* n);
-void* bd_xx_malloc(size_t pages);
+void* allocate(int order);
+void deallocate(void* address, int order);
 
 
 #ifdef DEBUG

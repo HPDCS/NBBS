@@ -51,40 +51,15 @@ char *buff;
 
 unsigned int number_of_processes;
 
-int allocate(int order, unsigned long * temp){
-	if(syscall(134,order,temp) == -1)
-		*temp = NULL;
+void* allocate(int order){
+  unsigned long temp;
+	if(syscall(134,order,&temp) == -1)
+		return  NULL;
+  return (void*) temp;
 }
 
-int deallocate(unsigned long address, int order){
-	return syscall(174,address,order);
+void deallocate(void* address, int order){
+	syscall(174,address,order);
 }
-
-
-
-void* bd_xx_malloc(size_t byte){
-    unsigned int starting_node, last_node, actual, started_at, failed_at_node;
-    bool restarted = false;
-    unsigned int leaf_position;
-    unsigned long address;
-        
-    if(tid == -1){
-		tid = __sync_fetch_and_add(&partecipants, 1);
-     }
-
-
-    if( byte > MAX_ALLOCABLE_BYTE || byte > overall_memory_size)
-        return NULL;	
-
-    byte = upper_power_of_two(byte);
-
-    if( byte < MIN_ALLOCABLE_BYTES )
-        byte = MIN_ALLOCABLE_BYTES;
-
-    allocate(log_2(byte/MIN_ALLOCABLE_BYTES), &address);
-
-    return (void*) address;
-}
-
 
 

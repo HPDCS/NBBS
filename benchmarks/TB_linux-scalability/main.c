@@ -22,9 +22,8 @@
 #define ALLOC_SIZE 8
 #endif
 
-
-void* bd_xx_malloc(size_t);
-void  bd_xx_free(void*);
+void* allocate(int order);
+void deallocate(void* address, int order);
 
 //__thread taken_list* takenn;
 //__thread taken_list* takenn_serbatoio;
