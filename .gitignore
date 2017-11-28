@@ -2,6 +2,7 @@
 *.a
 *.so
 *.d
+*.ko
 *.o
 tst-independent-alloc
 t-test1

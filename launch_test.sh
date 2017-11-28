@@ -8,8 +8,8 @@ SIZE_list="8 128"
 
 FOLDER="results"
 
-#make clean
-#make NUM_LEVELS=20
+make clean
+make NUM_LEVELS=20
 
 mkdir ${FOLDER}
 
