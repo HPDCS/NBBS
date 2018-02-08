@@ -71,12 +71,10 @@ static unsigned long overall_memory_size;
 static unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 unsigned int number_of_leaves; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 static void* volatile overall_memory = NULL;
-static volatile unsigned long levels = NUM_LEVELS;
-//node* trying;
-//node* upper_bound;
-//unsigned int failed_at_node;
+
+static volatile unsigned long levels = NUM_LEVELS; //ROOT è a livello 1, mentre le foglie sono a livello levels
 static unsigned int overall_height;
-static unsigned int max_level;
+static unsigned int max_level; //Ultimo livello utile per un allocazione
 
 volatile int init_phase = 0;
 
@@ -130,7 +128,7 @@ void init(){
 		abort();
 	}
 	
-	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
+	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES); //last valid allocable level
     
    if(init_phase ==  0 && __sync_bool_compare_and_swap(&init_phase, 0, 1)){
 
@@ -189,6 +187,8 @@ void init(){
 
     
     if(first){
+		printf("\t Version SPAA 2018 0.1\n", max_level);
+        
         printf("1lvl-nb: UMA Init complete\n");
         printf("\t Total Memory = %lu\n", overall_memory_size);
         printf("\t Levels = %u\n", overall_height);
@@ -347,7 +347,7 @@ static unsigned int alloc2(unsigned int n){
         return n;
     }
         
-    while(actual != 1){ //  && level(actual) <= max_level --secondo me si può fermare appena vede un fratello a 1
+    while(level_by_idx(actual) != max_level){ //  level(actual) > max_level --secondo me si può fermare appena vede un fratello a 1
         son = actual;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
@@ -360,7 +360,7 @@ static unsigned int alloc2(unsigned int n){
                 failed_at_node = actual;
                 //ripristino dal nodo dove sono partito al nodo dove sono arrivato (da trying ad n)
                 //upper_bound = son;
-                internal_free_node2(n, son);
+                internal_free_node2(n, level_by_idx(son));
                 return failed_at_node;
             }
             
@@ -368,14 +368,11 @@ static unsigned int alloc2(unsigned int n){
             
             if(is_left_child){ //n è sinistro
               new_value = (new_value & MASK_CLEAN_LEFT_COALESCE) | MASK_OCCUPY_LEFT;
-              //new_value = new_value | MASK_OCCUPY_LEFT;
             }
             else{
               new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
-              //new_value = new_value | MASK_OCCUPY_RIGHT;
             }
 
-            //TODO: se new_val=actual_val non serve fare la CAS
         }while(new_value != actual_value && //CONTROLLA!!!
                 !__sync_bool_compare_and_swap(&(tree[actual].val), actual_value, new_value));
     }
@@ -417,7 +414,7 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
                 
         } while (new_val != actual_value && !__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
 
-    }while( (actual!=upper_bound) &&
+    }while( (level_by_idx(actual) != upper_bound) &&
             !( (new_val & (MASK_OCCUPY_LEFT >> is_left_child) ) != 0 )  
 
             );
@@ -453,19 +450,19 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
     
     actual = parent_idx_by_idx(n);
     runner = n;
-    
-    while(runner != upper_bound){ //  && level(runner) <=max_level
-		//__sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;
-        or_val = (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) );								//SPAA2018
-        do{                                                                                                 //SPAA2018
-			curr_val = tree[actual].val;                                                                    //SPAA2018
-			old_val = __sync_val_compare_and_swap(&(tree[actual].val), curr_val, ( curr_val | or_val) );    //SPAA2018
-		}while(curr_val != old_val);                                                                        //SPAA2018
-																											//SPAA2018
+        
+    while(level_by_idx(runner) != upper_bound){ //  level(runner) > max_level
+		//or_val = (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) );								//SPAA2018
+        //do{                                                                                                 //SPAA2018
+		//	curr_val = tree[actual].val;                                                                    //SPAA2018
+		//	old_val = __sync_val_compare_and_swap(&(tree[actual].val), curr_val, ( curr_val | or_val) );    //SPAA2018
+		//}while(curr_val != old_val);                                                                        //SPAA2018
+	
+		old_val = __sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;																									//SPAA2018
 		is_left_child = is_left_by_idx(runner);                                                             //SPAA2018
-																											//SPAA2018
-        if( ((curr_val & (MASK_OCCUPY_LEFT >> is_left_child)) != 0 ) &&                                     //SPAA2018
-			(!(curr_val & (MASK_LEFT_COALESCE >> is_left_child)) != 0 )){                                   //SPAA2018
+																												//SPAA2018
+        if( ((old_val & (MASK_OCCUPY_LEFT >> is_left_child)) != 0 ) &&                                     //SPAA2018
+			((old_val & (MASK_LEFT_COALESCE >> is_left_child)) == 0 )){                                   //SPAA2018
 				break;                                                                                      //SPAA2018
 		}                                                                                                   //SPAA2018
         
@@ -484,7 +481,7 @@ void bd_xx_free(void* n){
     char * tmp = ((char*)n) - (char*)overall_memory;
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
-    internal_free_node2( free_tree[pos].pos, 1);
+    internal_free_node2( free_tree[pos].pos, max_level);
 #ifdef DEBUG
 	__sync_fetch_and_add(node_allocated,-1);
 	__sync_fetch_and_add(size_allocated,-(n->mem_size));
