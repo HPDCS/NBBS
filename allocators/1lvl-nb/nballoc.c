@@ -443,6 +443,8 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
 static inline void internal_free_node2(unsigned int n, unsigned int upper_bound){
     unsigned int actual;
     unsigned int runner;
+    nbint curr_val, old_val, or_val;									//SPAA2018
+    bool is_left_child;													//SPAA2018
 
     if( tree[n].val != OCCUPY_BLOCK ){
         printf("err: il blocco non è occupato\n");
@@ -453,17 +455,20 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
     runner = n;
     
     while(runner != upper_bound){ //  && level(runner) <=max_level
+		//__sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;
+        or_val = (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) );								//SPAA2018
+        do{                                                                                                 //SPAA2018
+			curr_val = tree[actual].val;                                                                    //SPAA2018
+			old_val = __sync_val_compare_and_swap(&(tree[actual].val), curr_val, ( curr_val | or_val) );    //SPAA2018
+		}while(curr_val != old_val);                                                                        //SPAA2018
+																											//SPAA2018
+		is_left_child = is_left_by_idx(runner);                                                             //SPAA2018
+																											//SPAA2018
+        if( ((curr_val & (MASK_OCCUPY_LEFT >> is_left_child)) != 0 ) &&                                     //SPAA2018
+			(!(curr_val & (MASK_LEFT_COALESCE >> is_left_child)) != 0 )){                                   //SPAA2018
+				break;                                                                                      //SPAA2018
+		}                                                                                                   //SPAA2018
         
-        __sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;
-        
-//        do{
-//            actual_value = actual->val;
-//            if(&left(actual)==runner)
-//                new_value = actual_value | MASK_LEFT_COALESCE;
-//            else
-//                new_value = actual_value | MASK_RIGHT_COALESCE;
-//        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value)); // TODO use fetch_&_or
-
         runner = actual;
         actual = parent_idx_by_idx(actual);
     }
