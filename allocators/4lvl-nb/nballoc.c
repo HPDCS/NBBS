@@ -193,6 +193,8 @@ static void init(){
 	overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
 	overall_height = levels;
 	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES); //last valid allocable level
+	max_level = ((unsigned long long)((max_level-1)/4))*4 + 1;//max_level - max_level%4 + 1;  
+
 
 	overall_memory 	= mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	tree 			= mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -214,6 +216,7 @@ static void init(){
 	printf("\t Containers = %u\n", number_of_container);
 	printf("\t Min size %12llu at level %2llu\n", MIN_ALLOCABLE_BYTES, overall_height);
 	printf("\t Max size %12llu at level %2llu\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+	printf("\t Max allcable level %2llu\n", max_level);
 	
 }
 
@@ -486,6 +489,7 @@ static void internal_free_node(node* n, unsigned int upper_bound){
 	unsigned long long old_val, new_val, p_pos, n_pos;
 	bool do_exit = false;
 	
+	
 	// FASE 1
 	if(level_by_idx(BUNCHROOT(n)->pos) > upper_bound)//TODO: sistemare marca per togliere il controllo qui
 		marca(BUNCHROOT(n), upper_bound);
@@ -519,8 +523,8 @@ static void marca(node* n, unsigned int upper_bound){
 		do{
 			old_val = new_val = parent->container->nodes;
 			new_val = new_val | (COALESCE_RIGHT(0, p_pos) << is_left_son);
-			//if(new_val==old_val)										//SPAA2018
-			//	return;													//SPAA2018
+			if(new_val==old_val)										//SPAA2018
+				return;													//SPAA2018
 		}while(!__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
 //		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
 	}while(level_by_idx(BUNCHROOT(parent)->pos) > upper_bound);
