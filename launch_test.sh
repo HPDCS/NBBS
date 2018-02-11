@@ -27,10 +27,12 @@ do
 				EX2="time -f Real:%e,User:%U,Sys:%S,PCPU:%P,PFAULT:%F,MEM:%K ./benchmarks/TB_threadtest/TB_threadtest-$alloc $threads $size 						"
 				EX3="time -f Real:%e,User:%U,Sys:%S,PCPU:%P,PFAULT:%F,MEM:%K ./benchmarks/larson/larson-$alloc 10 `echo $((size-1))` $size 1000 10000 1 $threads		"
 				EX4="time -f Real:%e,User:%U,Sys:%S,PCPU:%P,PFAULT:%F,MEM:%K ./benchmarks/TB_fixed-size/TB_fixed-size-$alloc $threads $size `echo $((size*16))`"
+				EX5="time -f Real:%e,User:%U,Sys:%S,PCPU:%P,PFAULT:%F,MEM:%K ./benchmarks/TB_same-size/TB_same-size-$alloc $threads $size `echo $((size*16))`"
 				OUT1="${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R$run"; touch $OUT1
 				OUT2="${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R$run"; touch $OUT2
 				OUT3="${FOLDER}/LRSN-$alloc-sz$size-TH$threads-R$run"; touch $OUT3
 				OUT4="${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R$run"; touch $OUT4
+				OUT5="${FOLDER}/TBSS-$alloc-sz$size-TH$threads-R$run"; touch $OUT5
 				str="b"
 				
 				echo TBLS-$alloc sz:$size TH:$threads R:$run --- $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M)
@@ -66,6 +68,15 @@ do
 				then
 					echo $EX4 TO $OUT4
 					($EX4) &> $OUT4
+					str="a"
+				fi
+				
+				echo TBSS-$alloc sz:$size TH:$threads R:$run --- $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M)
+				
+				if [ `ls -l $OUT5 | awk '{print $5}'` -eq 0 ]
+				then
+					echo $EX5 TO $OUT5
+					($EX5) &> $OUT5
 					str="a"
 				fi
 
