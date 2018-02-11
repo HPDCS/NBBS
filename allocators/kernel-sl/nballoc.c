@@ -51,15 +51,21 @@ char *buff;
 
 unsigned int number_of_processes;
 
-void* allocate(int order){
-  unsigned long temp;
-	if(syscall(134,order,&temp) == -1)
-		return  NULL;
-  return (void*) temp;
+int convert_to_level(unsigned int size){
+	unsigned int tmp = (size - 1)/4096 + 1;
+	return (int) log2_(tmp);	
 }
 
-void deallocate(void* address, int order){
-	syscall(174,address,order);
+void* allocate(unsigned int order){
+
+	unsigned long temp;
+	if(syscall(134,convert_to_level(order),&temp) == -1)
+		return  NULL;
+	return (void*) temp;
+}
+
+void deallocate(void* address, unsigned int order){
+	syscall(174,address,convert_to_level(order));
 }
 
 

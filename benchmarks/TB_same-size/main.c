@@ -69,13 +69,14 @@ void parallel_try(){
 		
 		for (j = 0 ; j < req_blocks ; j++){
 			chunks[myid][offset*blocchi + j] = TO_BE_REPLACED_MALLOC(cur_block_size);
+			sizes[myid][offset*blocchi + j] = cur_block_size;
 		}
 		
 		offset = (offset + 1) % ARRAYS;
 		
 		j = 0;
 		while(chunks[myid][offset*blocchi + j] != -1){
-			TO_BE_REPLACED_FREE(chunks[myid][offset*blocchi + j]);
+			TO_BE_REPLACED_FREE(chunks[myid][offset*blocchi + j], sizes[myid][offset*blocchi + j]);
 			chunks[myid][offset*blocchi + j] = -1;
 			j++;			
 		}
@@ -117,7 +118,7 @@ __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
 		max_lvl++;
 		tmp = tmp >> 1;
 	}
-	gap_size = (max_size - min_size)/8 + 1;
+	gap_size = (max_size - min_size)/4096 + 1;
 	taglie = max_lvl - min_lvl + 1;
 	blocchi = (1<<taglie) - 1; //può essere la metà
 	

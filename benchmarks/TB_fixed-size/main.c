@@ -115,7 +115,7 @@ __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
 		max_lvl++;
 		tmp = tmp >> 1;
 	}
-	gap_size = (max_size - min_size)/8 + 1;
+	gap_size = (max_size - min_size)/4096 + 1;
 	taglie = max_lvl - min_lvl + 1;
 	blocchi = (1<<taglie) - 1;
 	
