@@ -365,7 +365,7 @@ static unsigned int alloc2(unsigned int n){
 
     tree[n].val = OCCUPY_BLOCK;
 
-    while(actual != 1){ //  && level(actual) <= max_level --secondo me si può fermare appena vede un fratello a 1
+    while(level_by_idx(actual) != max_level){ //  && level(actual) <= max_level --secondo me si può fermare appena vede un fratello a 1
         son = actual;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
@@ -377,7 +377,7 @@ static unsigned int alloc2(unsigned int n){
                 failed_at_node = actual;
                 //ripristino dal nodo dove sono partito al nodo dove sono arrivato (da trying ad n)
                 //upper_bound = son;
-                internal_free_node2(n, son);
+                internal_free_node2(n, level_by_idx(son));
                 return failed_at_node;
             }
             
@@ -432,7 +432,7 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
                 
         tree[actual].val = new_val;
 
-    }while( (actual!=upper_bound) &&
+    }while( (level_by_idx(actual) != upper_bound) &&
             !( (new_val & (MASK_OCCUPY_LEFT >> is_left_child) ) != 0 )  
 
             );
@@ -467,7 +467,7 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
     actual = parent_idx_by_idx(n);
     runner = n;
     
-    while(runner != upper_bound){ //  && level(runner) <=max_level
+    while(level_by_idx(runner) != upper_bound){ //  && level(runner) <=max_level
         
         __sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;
         
@@ -495,7 +495,7 @@ void bd_xx_free(void* n){
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
     BD_LOCK(&ROOT.lock);
-    internal_free_node2( free_tree[pos].pos, 1);
+    internal_free_node2( free_tree[pos].pos, max_level);
     BD_UNLOCK(&ROOT.lock);
 #ifdef DEBUG
 	__sync_fetch_and_add(node_allocated,-1);
