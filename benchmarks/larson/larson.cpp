@@ -1,3 +1,13 @@
+#ifdef malloc
+#undef malloc
+#define MALLOC_OK
+#endif
+
+#ifdef free
+#undef free
+#define FREE_OK
+#endif
+
 #include <assert.h>
 #include <stdio.h>
 
@@ -140,6 +150,17 @@ void operator delete(void *pUserData )
 }
 #endif
 
+#ifdef MALLOC_OK
+#undef MALLOC_OK
+#define malloc(c) bd_xx_malloc(c)
+extern "C" { void* bd_xx_malloc(size_t size);}
+#endif
+
+#ifdef FREE_OK
+#undef FREE_OK
+#define free(c) bd_xx_free(c)
+extern "C" { void bd_xx_free(void*);}
+#endif
 
 
 /* Test driver for memory allocators           */
