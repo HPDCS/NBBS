@@ -2,7 +2,7 @@ BASE_ALLOCATORS = $(abspath ../../allocators)
 
 PATH_ALLOCATORS = $(subst $(BASE_ALLOCATORS)/Makefile,  , $(wildcard $(BASE_ALLOCATORS)/*))
 #ALLOCATORS = $(filter-out Makefile nballoc.mk, $(subst $(BASE_ALLOCATORS)/,  ,  $(PATH_ALLOCATORS))) libc
-ALLOCATORS = $(filter-out Makefile nballoc.mk hoard 1lvl-ll, $(subst $(BASE_ALLOCATORS)/,  ,  $(PATH_ALLOCATORS))) libc
+ALLOCATORS = $(filter-out Makefile nballoc.mk hoard 1lvl-ll kernel-sl, $(subst $(BASE_ALLOCATORS)/,  ,  $(PATH_ALLOCATORS))) libc
 INTERMEDIATE_OBJS_PATH = bin
 MY_ALLOCATORS = 1lvl-nb 1lvl-sl 4lvl-nb 4lvl-sl buddy-sl
 
