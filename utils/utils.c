@@ -32,6 +32,7 @@ const unsigned int tab64[64] = {
     44, 24, 15,  8, 23,  7,  6,  5};
 
 unsigned int log2_ (unsigned long value){
+    return 63 - __builtin_clzl(value);
     value |= value >> 1;
     value |= value >> 2;
     value |= value >> 4;
