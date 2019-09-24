@@ -15,7 +15,7 @@
 #define FAIL_END 12
 #define ITER 465
 #define SERBATOIO_DIM (16*8192)
-
+#define NPTR ((char*)-1)
 
 #ifndef ALLOC_SIZE
 #define ALLOC_SIZE 8
@@ -65,7 +65,7 @@ void parallel_try(){
 		cur_block_size = max_size >> (rand() % taglie);
 		req_blocks = max_size / cur_block_size;
 		
-		if(chunks[myid][offset*blocchi] != -1) printf("WTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTF\n");
+		if(chunks[myid][offset*blocchi] != NPTR) printf("WTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTFWTF\n");
 		
 		for (j = 0 ; j < req_blocks ; j++){
 			chunks[myid][offset*blocchi + j] = TO_BE_REPLACED_MALLOC(cur_block_size);
@@ -74,9 +74,9 @@ void parallel_try(){
 		offset = (offset + 1) % ARRAYS;
 		
 		j = 0;
-		while(chunks[myid][offset*blocchi + j] != -1){
+		while(chunks[myid][offset*blocchi + j] != NPTR){
 			TO_BE_REPLACED_FREE(chunks[myid][offset*blocchi + j]);
-			chunks[myid][offset*blocchi + j] = -1;
+			chunks[myid][offset*blocchi + j] = NPTR;
 			j++;			
 		}
 	}	
@@ -138,7 +138,7 @@ __attribute__((constructor(400))) void pre_main2(int argc, char**argv){
 		chunks[i] = mmap(NULL, sizeof(void*)*blocchi*ARRAYS, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 		sizes[i] = mmap(NULL, sizeof(size_t)*blocchi*ARRAYS, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 		for(j=0; j<blocchi*ARRAYS; j++){
-			chunks[i][j] = -1;
+			chunks[i][j] = NPTR;
 			sizes[i][j] = -1;
 		}
 	}
