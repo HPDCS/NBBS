@@ -348,7 +348,7 @@ static unsigned int alloc2(unsigned int n){
     }
         
     while(level_by_idx(actual) != max_level){ //  level(actual) > max_level --secondo me si può fermare appena vede un fratello a 1
-        //son = actual;
+        son = actual;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
 
