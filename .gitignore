@@ -1,5 +1,20 @@
 # Add any directories, files, or patterns you don't want to be tracked by version control
-
-**/*.o
-**/test
-**/debug
+*.a
+*.so
+*.d
+*.ko
+*.o
+tst-independent-alloc
+t-test1
+t-test2
+base_test-*-*
+TB_threadtest-*
+debug/*
+*-libc
+larson*-nb
+larson*-sl
+TB_*-nb
+TB_*-sl
+*-ptmalloc3
+*-hoard
+results/
