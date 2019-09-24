@@ -114,6 +114,7 @@ static node_container* containers; //array di container In Numa questo sarà uno
 unsigned long long overall_memory_size;
 unsigned long long overall_memory_pages;
 unsigned long long overall_height;
+static unsigned int max_level; //Ultimo livello utile per un allocazione
 unsigned int number_of_leaves;
 unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 //unsigned int number_of_processes;
@@ -132,10 +133,11 @@ unsigned int partecipants=0;
 
 static void init_tree(unsigned long long number_of_nodes);
 static unsigned long long alloc(node* n);
-static void marca(node* n, node* upper_bound);
+static void marca(node* n, unsigned int upper_bound);
 static bool IS_OCCUPIED(unsigned long long, unsigned);
-static unsigned long long check_parent(node* n);static void smarca(node* n, node* upper_bound);
-static void internal_free_node(node* n, node* upper_bound);
+static unsigned long long check_parent(node* n);
+static void smarca(node* n, unsigned int upper_bound);
+static void internal_free_node(node* n, unsigned int upper_bound);
 void* bd_xx_malloc(size_t pages);
 
 
@@ -190,6 +192,9 @@ static void init(){
 	number_of_leaves = (1<< (levels-1));
 	overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
 	overall_height = levels;
+	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES); //last valid allocable level
+	max_level = ((unsigned long long)((max_level-1)/4))*4 + 1;//max_level - max_level%4 + 1;  
+
 
 	overall_memory 	= mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	tree 			= mmap(NULL,(1+number_of_nodes)*sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -211,6 +216,7 @@ static void init(){
 	printf("\t Containers = %u\n", number_of_container);
 	printf("\t Min size %12llu at level %2llu\n", MIN_ALLOCABLE_BYTES, overall_height);
 	printf("\t Max size %12llu at level %2llu\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+	printf("\t Max allcable level %2llu\n", max_level);
 	
 }
 
@@ -371,7 +377,8 @@ static unsigned long long alloc(node* n){
 		
 	}while(new_val!=old_val && !__sync_bool_compare_and_swap(&n->container->nodes, old_val, new_val));
 	
-	if(n->container->bunch_root == &ROOT){
+	//if(n->container->bunch_root == &ROOT){
+	if(level_by_idx(n->container->bunch_root->pos) <= max_level){
 		return 0;
 	}
 
@@ -401,7 +408,7 @@ static unsigned long long check_parent(node* n){
 			new_val = old_val = parent->container->nodes;
 			
 			if(IS_OCCUPIED(parent->container->nodes, tmp_container_pos)){
-				internal_free_node(n, upper_bound);
+				internal_free_node(n, level_by_idx(upper_bound->pos));
 				return parent->pos;
 			}
 			
@@ -418,7 +425,7 @@ static unsigned long long check_parent(node* n){
 			}
 			
 		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent->container->nodes),old_val,new_val));
-	}while(BUNCHROOT(parent) != &ROOT);	
+	}while(level_by_idx(BUNCHROOT(parent)->pos) > max_level);	
 	
 	return 0;
 }
@@ -459,7 +466,7 @@ void bd_xx_free(void* n){
     char * tmp = ((char*)n) - (char*)overall_memory;
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
-    internal_free_node(&tree[free_tree[pos].pos], &ROOT);
+    internal_free_node(&tree[free_tree[pos].pos], max_level);
 
 #ifdef DEBUG
 	__sync_fetch_and_add(node_allocated,-1);
@@ -478,12 +485,13 @@ void bd_xx_free(void* n){
 	3) vengo smarcati i grappoli antecedenti (funzione smarca)
  @param n è un nodo generico ma per come facciamo qui la allocazione tutto il suo ramo è marcato.
 */
-static void internal_free_node(node* n, node* upper_bound){
+static void internal_free_node(node* n, unsigned int upper_bound){
 	unsigned long long old_val, new_val, p_pos, n_pos;
 	bool do_exit = false;
 	
+	
 	// FASE 1
-	if(BUNCHROOT(n) != upper_bound)//TODO: sistemare marca per togliere il controllo qui
+	if(level_by_idx(BUNCHROOT(n)->pos) > upper_bound)//TODO: sistemare marca per togliere il controllo qui
 		marca(BUNCHROOT(n), upper_bound);
 	// FASE 2
 	do{
@@ -493,7 +501,7 @@ static void internal_free_node(node* n, node* upper_bound){
 	}while(new_val!=old_val && !__sync_bool_compare_and_swap(&n->container->nodes,old_val, new_val));
 	
 	// FASE 3
-	if(BUNCHROOT(n) != upper_bound && !do_exit)
+	if(level_by_idx(BUNCHROOT(n)->pos) > upper_bound && !do_exit)
 		smarca(BUNCHROOT(n), upper_bound);
 }
 
@@ -503,7 +511,7 @@ static void internal_free_node(node* n, node* upper_bound){
  @param n è la radice di un grappolo. Bisogna settare in coalescing il padre.
  @return il valore precedente con un singolo nodo marcato come "coalescing"
  */
-static void marca(node* n, node* upper_bound){
+static void marca(node* n, unsigned int upper_bound){
 	node* parent = n;
 	unsigned long long old_val, new_val, p_pos;
 	bool is_left_son;
@@ -515,9 +523,11 @@ static void marca(node* n, node* upper_bound){
 		do{
 			old_val = new_val = parent->container->nodes;
 			new_val = new_val | (COALESCE_RIGHT(0, p_pos) << is_left_son);
-
-		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
-	}while(BUNCHROOT(parent) != upper_bound);
+			if(new_val==old_val)										//SPAA2018
+				return;													//SPAA2018
+		}while(!__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
+//		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
+	}while(level_by_idx(BUNCHROOT(parent)->pos) > upper_bound);
 }
 
 
@@ -527,7 +537,7 @@ static void marca(node* n, node* upper_bound){
  @param n: n è la radice di un grappolo (BISOGNA SMARCARE DAL PADRE)
  
  */
-static void smarca(node* n, node* upper_bound){
+static void smarca(node* n, unsigned int upper_bound){
 	unsigned long long old_val, new_val, p_pos;
 	bool do_exit=false, is_left_son;
 	node *parent;
@@ -578,7 +588,7 @@ static void smarca(node* n, node* upper_bound){
 			
 		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent_ptr_by_ptr(parent).container->nodes), old_val, new_val));
 	
-	}while(BUNCHROOT(parent) != upper_bound && !do_exit);
+	}while(level_by_idx(BUNCHROOT(parent)->pos) > upper_bound && !do_exit);
 	
 }
 
