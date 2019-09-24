@@ -49,7 +49,7 @@ TESTS = t-test1$(T_SUF) t-test2$(T_SUF) \
 	tst-independent-alloc$(T_SUF)
         #m-test1$(T_SUF) tst-mallocstate$(T_SUF) tst-mstats$(T_SUF)
 
-CFLAGS = $(SYS_FLAGS) $(OPT_FLAGS) $(WARN_FLAGS) $(THR_FLAGS) $(INC_FLAGS)
+CFLAGS = $(SYS_FLAGS) $(OPT_FLAGS) $(WARN_FLAGS) $(THR_FLAGS) $(INC_FLAGS) -Wno-unused-but-set-variable -Wno-implicit-function-declaration -Wno-int-to-pointer-cast
 
 
 

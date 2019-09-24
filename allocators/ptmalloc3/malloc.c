@@ -3978,8 +3978,10 @@ static int sys_trim(mstate m, size_t pad) {
               !has_segment_link(m, sp)) { /* can't shrink if pinned */
             size_t newsize = sp->size - extra;
             /* Prefer mremap, fall back to munmap */
-            if ((CALL_MREMAP(sp->base, sp->size, newsize, 0) != MFAIL) ||
-                (CALL_MUNMAP(sp->base + newsize, extra) == 0)) {
+            if (
+                ( ((void*) CALL_MREMAP(sp->base, sp->size, newsize, 0)) != MFAIL) ||
+                (CALL_MUNMAP(sp->base + newsize, extra) == 0)
+               ) {
               released = extra;
             }
           }

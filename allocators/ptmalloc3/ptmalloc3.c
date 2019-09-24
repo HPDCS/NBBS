@@ -203,8 +203,7 @@ struct malloc_arena {
 
   /* Space for mstate.  The size is just the minimum such that
      create_mspace_with_base can be successfully called.  */
-  char buf_[pad_request(sizeof(struct malloc_state)) + TOP_FOOT_SIZE +
-	    CHUNK_ALIGN_MASK + 1];
+  char buf_[pad_request(sizeof(struct malloc_state)) + TOP_FOOT_SIZE + CHUNK_ALIGN_MASK + 1];
 };
 #define MSPACE_OFFSET (((offsetof(struct malloc_arena, buf_) \
 			 + CHUNK_ALIGN_MASK) & ~CHUNK_ALIGN_MASK))
