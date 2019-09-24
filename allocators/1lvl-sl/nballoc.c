@@ -284,7 +284,8 @@ void* bd_xx_malloc(size_t byte){
     //last_node      = lchild_idx_by_ptr(&tree[starting_node])-1;    //last node for this level
     last_node      = lchild_idx_by_idx(starting_node)-1;    //last node for this level
 
-	actual = started_at = starting_node + (tid) * ((last_node - starting_node + 1)/partecipants);
+actual = get_freemap(level_by_idx(starting_node), last_node);
+if(!actual)	actual = started_at = starting_node + (tid) * ((last_node - starting_node + 1)/partecipants);
 	//actual = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
         
     started_at = actual;
@@ -494,8 +495,10 @@ void bd_xx_free(void* n){
     unsigned long long tmp = ((unsigned long long)n) - (unsigned long long)overall_memory;
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
+    pos = free_tree[pos].pos;
+    update_freemap(level_by_idx(pos), pos);
     BD_LOCK(&ROOT.lock);
-    internal_free_node2( free_tree[pos].pos, max_level);
+    internal_free_node2(pos, max_level);
     BD_UNLOCK(&ROOT.lock);
 #ifdef DEBUG
 	__sync_fetch_and_add(node_allocated,-1);
