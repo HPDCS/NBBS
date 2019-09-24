@@ -243,7 +243,7 @@ static void init_tree(unsigned long number_of_nodes){
 
  @Author: Andrea Scarselli
  */
-static void destroy(){
+void destroy(){
     free(overall_memory);
     free(tree);
 }
@@ -411,10 +411,10 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
     nbint actual_value;
     nbint new_val;
     bool is_left_child;
-    unsigned int actual = n, son;//&parent(n);
+    unsigned int actual = n; //, son;//&parent(n);
     
     do{
-        son = actual;
+        //son = actual;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
     
@@ -491,7 +491,7 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
 
 
 void bd_xx_free(void* n){
-    char * tmp = ((char*)n) - (char*)overall_memory;
+    unsigned long long tmp = ((unsigned long long)n) - (unsigned long long)overall_memory;
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
     BD_LOCK(&ROOT.lock);

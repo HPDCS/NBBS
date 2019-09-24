@@ -187,10 +187,10 @@ void init(){
 
     
     if(first){
-		printf("\t Version SPAA 2018 0.1\n", max_level);
-        
+        printf("\t Version SPAA 2018 0.1\n");
         printf("1lvl-nb: UMA Init complete\n");
         printf("\t Total Memory = %lu\n", overall_memory_size);
+        printf("\t Max level = %u\n", max_level);
         printf("\t Levels = %u\n", overall_height);
         printf("\t Leaves = %u\n", (number_of_nodes+1)/2);
         printf("\t Min size %llu at level %u\n", MIN_ALLOCABLE_BYTES, overall_height);
@@ -200,7 +200,7 @@ void init(){
 
 
 
-void __attribute__ ((constructor(1))) premain(){
+void __attribute__ ((constructor(500))) premain(){
     init();
 }
 
@@ -232,7 +232,7 @@ static void init_tree(unsigned long number_of_nodes){
 
  @Author: Andrea Scarselli
  */
-static void destroy(){
+void destroy(){
     free(overall_memory);
     free(tree);
 }
@@ -348,7 +348,7 @@ static unsigned int alloc2(unsigned int n){
     }
         
     while(level_by_idx(actual) != max_level){ //  level(actual) > max_level --secondo me si può fermare appena vede un fratello a 1
-        son = actual;
+        //son = actual;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
 
@@ -392,10 +392,10 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
     nbint actual_value;
     nbint new_val;
     bool is_left_child;
-    unsigned int actual = n, son;//&parent(n);
+    unsigned int actual = n;//, son;//&parent(n);
     
     do{
-        son = actual;
+        //son = actual;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
     
@@ -440,7 +440,8 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
 static inline void internal_free_node2(unsigned int n, unsigned int upper_bound){
     unsigned int actual;
     unsigned int runner;
-    nbint curr_val, old_val, or_val;									//SPAA2018
+    nbint // curr_val, 
+	old_val; //, or_val;									//SPAA2018
     bool is_left_child;													//SPAA2018
 
     if( tree[n].val != OCCUPY_BLOCK ){
@@ -478,7 +479,7 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
 
 
 void bd_xx_free(void* n){
-    char * tmp = ((char*)n) - (char*)overall_memory;
+    unsigned long long tmp = ((unsigned long long)n) - (unsigned long long)overall_memory;
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
     internal_free_node2( free_tree[pos].pos, max_level);

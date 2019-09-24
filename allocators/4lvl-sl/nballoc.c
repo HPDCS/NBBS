@@ -483,7 +483,7 @@ static inline unsigned long long libera_container(unsigned long long n_pos, unsi
 
 
 void bd_xx_free(void* n){
-    char * tmp = ((char*)n) - (char*)overall_memory;
+    unsigned long long tmp = ((unsigned long long )n) - (unsigned long long)overall_memory;
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
     BD_LOCK(&ROOT.lock);
@@ -508,7 +508,8 @@ void bd_xx_free(void* n){
  @param n è un nodo generico ma per come facciamo qui la allocazione tutto il suo ramo è marcato.
 */
 static void internal_free_node(node* n, unsigned int upper_bound){
-	unsigned long long old_val, new_val, p_pos, n_pos;
+	unsigned long long //old_val,
+        new_val, p_pos, n_pos;
 	bool do_exit = false;
 	
 	// FASE 1
@@ -516,10 +517,11 @@ static void internal_free_node(node* n, unsigned int upper_bound){
 	//if(BUNCHROOT(n) != upper_bound)//TODO: sistemare marca per togliere il controllo qui
 		marca(BUNCHROOT(n), upper_bound);
 	// FASE 2
-		n_pos = p_pos = n->container_pos; 
-		old_val = new_val = n->container->nodes;
-		new_val = libera_container(n_pos, new_val, &do_exit);
-		n->container->nodes = new_val;
+	n_pos = p_pos = n->container_pos; 
+	//old_val = 
+        new_val = n->container->nodes;
+	new_val = libera_container(n_pos, new_val, &do_exit);
+	n->container->nodes = new_val;
 	
 	// FASE 3
 	//if(BUNCHROOT(n) != upper_bound && !do_exit)
@@ -535,14 +537,16 @@ static void internal_free_node(node* n, unsigned int upper_bound){
  */
 static void marca(node* n, unsigned int upper_bound){
 	node* parent = n;
-	unsigned long long old_val, new_val, p_pos;
+	unsigned long long // old_val,
+ new_val, p_pos;
 	bool is_left_son;
 	do{
 		is_left_son = is_left_by_idx(BUNCHROOT(parent)->pos); 
 		parent = &parent_ptr_by_ptr(BUNCHROOT(parent));
 		p_pos = parent->container_pos;
 		
-			old_val = new_val = parent->container->nodes;
+			//old_val = 
+                        new_val = parent->container->nodes;
 			new_val = new_val | (COALESCE_RIGHT(0, p_pos) << is_left_son);
 			parent->container->nodes = new_val;
 
@@ -557,7 +561,8 @@ static void marca(node* n, unsigned int upper_bound){
  
  */
 static void smarca(node* n, unsigned int upper_bound){
-	unsigned long long old_val, new_val, p_pos;
+	unsigned long long //old_val, 
+new_val, p_pos;
 	bool do_exit=false, is_left_son;
 	node *parent;
 	parent = n;
@@ -570,7 +575,8 @@ static void smarca(node* n, unsigned int upper_bound){
 		//do{
 			do_exit = false;
 			
-			old_val = new_val = parent->container->nodes;
+//			old_val = 
+new_val = parent->container->nodes;
 			
 			if(is_left_son){
 				if(!IS_COALESCING_LEFT(new_val, p_pos)) //qualcuno l'ha già pulito
@@ -643,6 +649,7 @@ void find_the_bug_on_new_val(unsigned long long new_val){
 	}
 }
 */
+
 /*
 void  find_the_bug(int who){
 	int i;
@@ -676,6 +683,7 @@ void  find_the_bug(int who){
 /* 
 	SCRIVE SU FILE LA SITUAZIONE DELL'ALBERO (IN AMPIEZZA) VISTA DA UN CERTO THREAD
  */
+
 /*
 void write_on_a_file_in_ampiezza(unsigned int iter){
 	char filename[128];
@@ -700,7 +708,7 @@ void write_on_a_file_in_ampiezza(unsigned int iter){
 	fclose(f);
 
 }
-/*
+
 static void write_on_a_file_in_ampiezza_start(){
 	char filename[128];
 	int i;

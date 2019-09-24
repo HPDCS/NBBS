@@ -216,7 +216,7 @@ static void init(){
 	printf("\t Containers = %u\n", number_of_container);
 	printf("\t Min size %12llu at level %2llu\n", MIN_ALLOCABLE_BYTES, overall_height);
 	printf("\t Max size %12llu at level %2llu\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
-	printf("\t Max allcable level %2llu\n", max_level);
+	printf("\t Max allocable level %2u\n", max_level);
 	
 }
 
@@ -463,7 +463,7 @@ static inline unsigned long long libera_container(unsigned long long n_pos, unsi
 
 
 void bd_xx_free(void* n){
-    char * tmp = ((char*)n) - (char*)overall_memory;
+    unsigned long long tmp = ((unsigned long long)n) - (unsigned long long)overall_memory;
     unsigned int pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
     internal_free_node(&tree[free_tree[pos].pos], max_level);
