@@ -200,7 +200,7 @@ _combine(long index) {
 
 void
 bd_bd_free(void *addr) {
-	char* tmp  = addr - overall_memory;
+	//char* tmp  = addr - overall_memory;
 	long offset = ((unsigned long long)(addr-overall_memory))/MIN_ALLOCABLE_BYTES;
 	
 	assert( offset < (1<< self->level));
@@ -271,10 +271,10 @@ static void
 _dump(long index , long level) {
 	switch (self->tree[index]) {
 	case NODE_UNUSED:
-		printf("(%d:%d)", _index_offset(index, level, self->level) , 1 << (self->level - level));
+		printf("(%ld:%d)", _index_offset(index, level, self->level) , 1 << (self->level - level));
 		break;
 	case NODE_USED:
-		printf("[%d:%d]", _index_offset(index, level, self->level) , 1 << (self->level - level));
+		printf("[%ld:%d]", _index_offset(index, level, self->level) , 1 << (self->level - level));
 		break;
 	case NODE_FULL:
 		printf("{");
