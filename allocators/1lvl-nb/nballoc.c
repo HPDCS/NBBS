@@ -89,7 +89,7 @@ extern taken_list* takenn;
 
 
 static void init_tree(unsigned long number_of_nodes);
-static unsigned int alloc2(unsigned int);
+static unsigned int alloc2(unsigned int, unsigned int);
 //static unsigned int check_parent(node* n);
 //static unsigned int alloc(node* n);
 //static void smarca(node* n, node* upper_bound);
@@ -357,7 +357,7 @@ static unsigned int alloc2(unsigned int n, unsigned int lvl){
     unsigned int failed_at_node;
     nbint new_value;
     bool is_left_child;
-    unsigned int actual = n, son = n;//&parent(actual);
+    unsigned int actual = n;//, son = n;//&parent(actual);
     
     //actual è il valore dei bit che sono nel nodo prima che ci lavoro
     actual_value = tree[n].val;
@@ -370,7 +370,7 @@ static unsigned int alloc2(unsigned int n, unsigned int lvl){
     }
         
     while(lvl != max_level){ //  level(actual) > max_level --secondo me si può fermare appena vede un fratello a 1
-        son = actual;
+        //son = actual;
         lvl--;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
