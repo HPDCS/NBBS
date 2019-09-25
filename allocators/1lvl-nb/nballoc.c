@@ -271,6 +271,7 @@ void* bd_xx_malloc(size_t byte){
     unsigned int starting_node, last_node, actual, started_at, failed_at_node;
     bool restarted = false;
     unsigned int leaf_position;
+    unsigned int searched_lvl = 0;
 
     if(tid == -1){
 		tid = __sync_fetch_and_add(&partecipants, 1);
@@ -289,8 +290,8 @@ void* bd_xx_malloc(size_t byte){
     starting_node  = overall_memory_size / byte;            //first node for this level
     //last_node      = lchild_idx_by_ptr(&tree[starting_node])-1;    //last node for this level
     last_node      = lchild_idx_by_idx(starting_node)-1;    //last node for this level
-    
-    actual = get_freemap(level_by_idx(starting_node), last_node);
+    searched_lvl   = level_by_idx(starting_node);
+    actual = get_freemap(searched_lvl, last_node);
     if(!actual)	actual = started_at = starting_node + (tid) * ((last_node - starting_node + 1)/partecipants);
 	//actual = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
         
@@ -299,7 +300,7 @@ void* bd_xx_malloc(size_t byte){
     //quando faccio un giro intero ritorno NULL
     do{
         BD_LOCK(&glock);
-        failed_at_node = alloc2(actual);
+        failed_at_node = alloc2(actual, searched_lvl);
         BD_UNLOCK(&glock);
         if(failed_at_node == 0){
 #ifdef DEBUG
@@ -317,7 +318,7 @@ void* bd_xx_malloc(size_t byte){
         
         //Questo serve per evitare tutto il sottoalbero in cui ho fallito
         //actual = (failed_at_node + 1) * (1 << (level(&tree[actual]) - level(& tree[failed_at_node])));
-        actual = (failed_at_node + 1) * (1 << (level_by_idx(actual) - level_by_idx(failed_at_node)));
+        actual = (failed_at_node + 1) * (1 << (searched_lvl - level_by_idx(failed_at_node)));
         
         if(actual > last_node){ //se ho sforato riparto dal primo utile, se il primo era quello da cui avevo iniziato esco al controllo del while
             actual = starting_node;
@@ -351,7 +352,7 @@ void* bd_xx_malloc(size_t byte){
  
  */
 
-static unsigned int alloc2(unsigned int n){
+static unsigned int alloc2(unsigned int n, unsigned int lvl){
     nbint actual_value;
     unsigned int failed_at_node;
     nbint new_value;
@@ -368,8 +369,9 @@ static unsigned int alloc2(unsigned int n){
         return n;
     }
         
-    while(level_by_idx(actual) != max_level){ //  level(actual) > max_level --secondo me si può fermare appena vede un fratello a 1
+    while(lvl != max_level){ //  level(actual) > max_level --secondo me si può fermare appena vede un fratello a 1
         son = actual;
+        lvl--;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
 
@@ -381,7 +383,7 @@ static unsigned int alloc2(unsigned int n){
                 failed_at_node = actual;
                 //ripristino dal nodo dove sono partito al nodo dove sono arrivato (da trying ad n)
                 //upper_bound = son;
-                internal_free_node2(n, level_by_idx(son));
+                internal_free_node2(n, lvl+1);
                 return failed_at_node;
             }
             
@@ -416,12 +418,13 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
     nbint new_val;
     bool is_left_child;
     unsigned int actual = n;//, son;//&parent(n);
-    
+    unsigned int lvl = level_by_idx(actual);
     do{
         //son = actual;
+        lvl--;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
-    
+
         do{
             actual_value = tree[actual].val;
             new_val = actual_value;
@@ -440,7 +443,7 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
             #endif
         } while (new_val != actual_value && !__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
 
-    }while( (level_by_idx(actual) != upper_bound) &&
+    }while( (lvl != upper_bound) &&
             !( (new_val & (MASK_OCCUPY_LEFT >> is_left_child) ) != 0 )  
 
             );
@@ -465,7 +468,7 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
  */
 static inline void internal_free_node2(unsigned int n, unsigned int upper_bound){
     unsigned int actual;
-    unsigned int runner;
+    unsigned int runner, lvl;
     nbint // curr_val, 
 	old_val; //, or_val;									//SPAA2018
     bool is_left_child;													//SPAA2018
@@ -477,8 +480,9 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
     
     actual = parent_idx_by_idx(n);
     runner = n;
+    lvl = level_by_idx(runner);
         
-    while(level_by_idx(runner) != upper_bound){ //  level(runner) > max_level
+    while(lvl != upper_bound){ //  level(runner) > max_level
 		//or_val = (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) );								//SPAA2018
         //do{                                                                                                 //SPAA2018
 		//	curr_val = tree[actual].val;                                                                    //SPAA2018
@@ -495,6 +499,7 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
         
         runner = actual;
         actual = parent_idx_by_idx(actual);
+        lvl--;
     }
     
     tree[n].val = 0; // TODO aggiungi barriera --- secondo me "__sync_lock_release" va bene
