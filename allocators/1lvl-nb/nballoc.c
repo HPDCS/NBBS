@@ -395,7 +395,7 @@ static unsigned int alloc2(unsigned int n, unsigned int lvl){
             else{
               new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
             }
-            #ifndef BD_SPIN_LOCK  
+            #ifdef BD_SPIN_LOCK  
                 tree[actual].val = actual_value = new_value;
             #endif
         }while(new_value != actual_value && //CONTROLLA!!!
@@ -438,7 +438,7 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
                 new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT));
             
                 
-            #ifndef BD_SPIN_LOCK  
+            #ifdef BD_SPIN_LOCK  
                 tree[actual].val = actual_value = new_val;
             #endif
         } while (new_val != actual_value && !__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
