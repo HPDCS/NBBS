@@ -20,26 +20,6 @@
 
 typedef unsigned long long nbint; 
 
-typedef struct _node node;
-
-typedef struct node_container_{
-	unsigned long long nodes;
-	node* bunch_root;
-	char pad[48];
-}node_container;
-
-struct _node{
-	unsigned long long mem_start; //spiazzamento all'interno dell'overall_memory
-	unsigned long long mem_size;
-	node_container* container;
-	unsigned long long pos; //posizione all'interno dell'array "tree"
-#ifdef NUMA
-	unsigned long long numa_node; //to remember to which tree the node belongs to
-#endif
-	unsigned long long container_pos; //posizione all'interno del rispettivo container (1-15)
-};
-
-
 
 typedef struct _taken_list_elem{
 	struct _taken_list_elem* next;
@@ -63,5 +43,12 @@ void* bd_xx_malloc(size_t pages);
 extern unsigned long long *node_allocated, *size_allocated;
 #endif
 
+
+#ifndef BD_SPIN_LOCK
+	#define BD_LOCK_TYPE /**/
+	#define INIT_BD_LOCK /**/
+	#define BD_LOCK(x)   	 /**/
+	#define BD_UNLOCK(x) 	 /**/
+#endif
 
 #endif
