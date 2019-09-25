@@ -16,7 +16,7 @@ static inline void update_freemap(unsigned int key, unsigned int value){
   #else
     0;
   #endif
-//    if(tmp == 0 || value < tmp) 
+    if(1 || tmp == 0 || value < tmp) 
 freemap[key] = value;
 }
 
