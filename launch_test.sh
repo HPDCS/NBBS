@@ -3,14 +3,14 @@
 THREAD_list="1 2 4 8 16 24 32"		#numero di thread
 RUN_list="1 2 3 4"					#lista del numero di run
 #ALLOC_list="hoard 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
-ALLOC_list="4lvl-nb 1lvl-nb" #"buddy-sl 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
+ALLOC_list="4lvl-sl 4lvl-nb 1lvl-sl 1lvl-nb" #"buddy-sl 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
 SIZE_list="8 128 1024"
 
 
 FOLDER="results"
 
 make clean
-make NUM_LEVELS=20 MAX=16384 MIN=8
+make NUM_LEVELS=24 MAX=16384 MIN=8
 
 mkdir ${FOLDER}
 
@@ -32,7 +32,7 @@ do
 				OUT2="${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R$run"; touch $OUT2
 				OUT3="${FOLDER}/LRSN-$alloc-sz$size-TH$threads-R$run"; touch $OUT3
 				OUT4="${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R$run"; touch $OUT4
-				OUT5="${FOLDER}/TBSS-$alloc-sz$size-TH$threads-R$run"; touch $OUT5
+				#OUT5="${FOLDER}/TBSS-$alloc-sz$size-TH$threads-R$run"; touch $OUT5
 				str="b"
 				
 				echo TBLS-$alloc sz:$size TH:$threads R:$run --- $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M)
@@ -71,19 +71,19 @@ do
 					str="a"
 				fi
 				
-				echo TBSS-$alloc sz:$size TH:$threads R:$run --- $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M)
+				#echo TBSS-$alloc sz:$size TH:$threads R:$run --- $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M)
 				
-				if [ `ls -l $OUT5 | awk '{print $5}'` -eq 0 ]
-				then
-					echo $EX5 TO $OUT5
-					($EX5) &> $OUT5
-					str="a"
-				fi
+				#if [ `ls -l $OUT5 | awk '{print $5}'` -eq 0 ]
+				#then
+				#	echo $EX5 TO $OUT5
+				#	($EX5) &> $OUT5
+				#	str="a"
+				#fi
 
-				if [ ${str} = "a" ]
-				then
-					echo ""
-				fi
+				#if [ ${str} = "a" ]
+				#then
+				#	echo ""
+				#fi
 			
 			done
 		done
