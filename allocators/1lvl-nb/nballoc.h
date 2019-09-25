@@ -21,16 +21,6 @@
 
 typedef unsigned long long nbint; 
 
-
-typedef struct _node{
-    volatile nbint val; //per i bit etc;
-    char pad[48];
-    unsigned int mem_start; //spiazzamento all'interno dell'overall_memory
-    unsigned int mem_size;
-    unsigned int pos; //posizione all'interno dell'array "tree"
-} node;
-
-
 typedef struct _taken_list_elem{
     struct _taken_list_elem* next;
     node* elem;
@@ -52,6 +42,13 @@ void* bd_xx_malloc(size_t pages);
 #ifdef DEBUG
 extern unsigned long long *node_allocated; 
 extern nbint *size_allocated;
+#endif
+
+#ifndef BD_SPIN_LOCK
+	#define BD_LOCK_TYPE /**/
+	#define INIT_BD_LOCK /**/
+	#define BD_LOCK(x)   	 /**/
+	#define BD_UNLOCK(x) 	 /**/
 #endif
 
 

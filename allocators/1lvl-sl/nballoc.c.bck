@@ -3,10 +3,10 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/mman.h>
-#include <pthread.h>
-#include "nb1lvl.h"
+#include "nballoc.h"
 #include "utils.h"
 
+#include <pthread.h>
 
 
 /*********************************************     
@@ -71,22 +71,17 @@ static unsigned long overall_memory_size;
 static unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 unsigned int number_of_leaves; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 static void* volatile overall_memory = NULL;
-
-static volatile unsigned long levels = NUM_LEVELS; //ROOT è a livello 1, mentre le foglie sono a livello levels
+static volatile unsigned long levels = NUM_LEVELS;
+//node* trying;
+//node* upper_bound;
+//unsigned int failed_at_node;
 static unsigned int overall_height;
-static unsigned int max_level; //Ultimo livello utile per un allocazione
-
-#ifdef BD_SPIN_LOCK
-BD_LOCK_TYPE glock;
-#endif
-
+static unsigned int max_level;
 
 volatile int init_phase = 0;
 
 //extern int number_of_processes;
 extern taken_list* takenn;
-
-
 
 static void init_tree(unsigned long number_of_nodes);
 static unsigned int alloc2(unsigned int);
@@ -104,6 +99,7 @@ unsigned long long *node_allocated;
 
 __thread unsigned int tid=-1;
 unsigned int partecipants=0;
+
 /*******************************************************************
                 INIT NB-BUDDY SYSTEM
 *******************************************************************/
@@ -135,7 +131,7 @@ void init(){
 		abort();
 	}
 	
-	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES); //last valid allocable level
+	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
     
    if(init_phase ==  0 && __sync_bool_compare_and_swap(&init_phase, 0, 1)){
 
@@ -194,10 +190,8 @@ void init(){
 
     
     if(first){
-        printf("\t Version SPAA 2018 0.1\n");
-        printf("1lvl-nb: UMA Init complete\n");
+        printf("1lvl-sl: UMA Init complete\n");
         printf("\t Total Memory = %lu\n", overall_memory_size);
-        printf("\t Max level = %u\n", max_level);
         printf("\t Levels = %u\n", overall_height);
         printf("\t Leaves = %u\n", (number_of_nodes+1)/2);
         printf("\t Min size %llu at level %u\n", MIN_ALLOCABLE_BYTES, overall_height);
@@ -227,22 +221,21 @@ static void init_tree(unsigned long number_of_nodes){
     ROOT.pos = 1;
     ROOT.val = 0;
 
+    #if BD_SPIN_LOCK == 0
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    pthread_mutex_init(&(ROOT.lock), &attr);
+    #else
+    pthread_spin_init(&(ROOT.lock), PTHREAD_PROCESS_SHARED);
+    #endif
+
+
     for(i=2;i<=number_of_nodes;i++){
         tree[i].pos = i;
         node parent = parent_ptr_by_idx(i);
         tree[i].mem_size = parent.mem_size / 2;
 	}
-
-    #ifdef BD_SPIN_LOCK
-    #if BD_SPIN_LOCK == 0
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(&(glock), &attr);
-    #else
-    pthread_spin_init(&(glock), PTHREAD_PROCESS_SHARED);
-    #endif
-    #endif
 }
 
 /*
@@ -271,10 +264,11 @@ void* bd_xx_malloc(size_t byte){
     unsigned int starting_node, last_node, actual, started_at, failed_at_node;
     bool restarted = false;
     unsigned int leaf_position;
-
+        
     if(tid == -1){
 		tid = __sync_fetch_and_add(&partecipants, 1);
      }
+
 
     if( byte > MAX_ALLOCABLE_BYTE || byte > overall_memory_size)
         return NULL;
@@ -289,26 +283,26 @@ void* bd_xx_malloc(size_t byte){
     starting_node  = overall_memory_size / byte;            //first node for this level
     //last_node      = lchild_idx_by_ptr(&tree[starting_node])-1;    //last node for this level
     last_node      = lchild_idx_by_idx(starting_node)-1;    //last node for this level
-    
-    actual = get_freemap(level_by_idx(starting_node), last_node);
-    if(!actual)	actual = started_at = starting_node + (tid) * ((last_node - starting_node + 1)/partecipants);
+
+actual = get_freemap(level_by_idx(starting_node), last_node);
+if(!actual)	actual = started_at = starting_node + (tid) * ((last_node - starting_node + 1)/partecipants);
 	//actual = starting_node + (myid) * ((last_node - starting_node + 1)/number_of_processes);
         
     started_at = actual;
     
+    BD_LOCK(&(ROOT.lock));
     //quando faccio un giro intero ritorno NULL
     do{
-        BD_LOCK(&glock);
         failed_at_node = alloc2(actual);
-        BD_UNLOCK(&glock);
         if(failed_at_node == 0){
 #ifdef DEBUG
 			__sync_fetch_and_add(node_allocated,1);
 			__sync_fetch_and_add(size_allocated,byte);
 #endif
+
+   			BD_UNLOCK(&(ROOT.lock));
             leaf_position = byte*(actual - overall_memory_size / byte)/MIN_ALLOCABLE_BYTES;
             free_tree[leaf_position].pos = actual;
-            //printf("leaf pos %d\n", leaf_position);
             return ((char*) overall_memory) + leaf_position*MIN_ALLOCABLE_BYTES; //&tree[actual];
         }        
         //if(failed_at_node == 1){ // il buddy è pieno
@@ -326,6 +320,7 @@ void* bd_xx_malloc(size_t byte){
     
     }while(restarted == false || actual < started_at);
     
+   	BD_UNLOCK(&(ROOT.lock));
     return NULL;
 }
 
@@ -363,17 +358,19 @@ static unsigned int alloc2(unsigned int n){
     //trying = n;
     
     //il nodo è stato parallelamente occupato. Parzialmente o totalmente
-    if(actual_value != 0 || !__sync_bool_compare_and_swap(&(tree[n].val),0,OCCUPY_BLOCK)){
+    
+    if(actual_value != 0){
         //failed_at_node = n->pos;
         return n;
     }
-        
-    while(level_by_idx(actual) != max_level){ //  level(actual) > max_level --secondo me si può fermare appena vede un fratello a 1
+
+    tree[n].val = OCCUPY_BLOCK;
+
+    while(level_by_idx(actual) != max_level){ //  && level(actual) <= max_level --secondo me si può fermare appena vede un fratello a 1
         son = actual;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
 
-        do{
             actual_value = tree[actual].val;
             
             //Se l'AND con OCCUPY fallisce vuol dire che qualcuno lo ha occupato
@@ -389,15 +386,15 @@ static unsigned int alloc2(unsigned int n){
             
             if(is_left_child){ //n è sinistro
               new_value = (new_value & MASK_CLEAN_LEFT_COALESCE) | MASK_OCCUPY_LEFT;
+              //new_value = new_value | MASK_OCCUPY_LEFT;
             }
             else{
               new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
+              //new_value = new_value | MASK_OCCUPY_RIGHT;
             }
-            #ifndef BD_SPIN_LOCK  
-                tree[actual].val = actual_value = new_value;
-            #endif
-        }while(new_value != actual_value && //CONTROLLA!!!
-                !__sync_bool_compare_and_swap(&(tree[actual].val), actual_value, new_value));
+
+            //TODO: se new_val=actual_val non serve fare la CAS
+        tree[actual].val = new_value;
     }
     return 0;
 }
@@ -415,14 +412,13 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
     nbint actual_value;
     nbint new_val;
     bool is_left_child;
-    unsigned int actual = n;//, son;//&parent(n);
+    unsigned int actual = n; //, son;//&parent(n);
     
     do{
         //son = actual;
         is_left_child = is_left_by_idx(actual);
         actual = parent_idx_by_idx(actual);
     
-        do{
             actual_value = tree[actual].val;
             new_val = actual_value;
             
@@ -435,10 +431,7 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
                 new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT));
             
                 
-            #ifndef BD_SPIN_LOCK  
-                tree[actual].val = actual_value = new_val;
-            #endif
-        } while (new_val != actual_value && !__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
+        tree[actual].val = new_val;
 
     }while( (level_by_idx(actual) != upper_bound) &&
             !( (new_val & (MASK_OCCUPY_LEFT >> is_left_child) ) != 0 )  
@@ -466,9 +459,6 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
 static inline void internal_free_node2(unsigned int n, unsigned int upper_bound){
     unsigned int actual;
     unsigned int runner;
-    nbint // curr_val, 
-	old_val; //, or_val;									//SPAA2018
-    bool is_left_child;													//SPAA2018
 
     if( tree[n].val != OCCUPY_BLOCK ){
         printf("err: il blocco non è occupato\n");
@@ -477,22 +467,19 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
     
     actual = parent_idx_by_idx(n);
     runner = n;
+    
+    while(level_by_idx(runner) != upper_bound){ //  && level(runner) <=max_level
         
-    while(level_by_idx(runner) != upper_bound){ //  level(runner) > max_level
-		//or_val = (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) );								//SPAA2018
-        //do{                                                                                                 //SPAA2018
-		//	curr_val = tree[actual].val;                                                                    //SPAA2018
-		//	old_val = __sync_val_compare_and_swap(&(tree[actual].val), curr_val, ( curr_val | or_val) );    //SPAA2018
-		//}while(curr_val != old_val);                                                                        //SPAA2018
-	
-		old_val = __sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;																									//SPAA2018
-		is_left_child = is_left_by_idx(runner);                                                             //SPAA2018
-																												//SPAA2018
-        if( ((old_val & (MASK_OCCUPY_LEFT >> is_left_child)) != 0 ) &&                                     //SPAA2018
-			((old_val & (MASK_LEFT_COALESCE >> is_left_child)) == 0 )){                                   //SPAA2018
-				break;                                                                                      //SPAA2018
-		}                                                                                                   //SPAA2018
+        __sync_fetch_and_or(&(tree[actual].val),  (MASK_RIGHT_COALESCE << (lchild_idx_by_idx(actual)==runner) ) ) ;
         
+//        do{
+//            actual_value = actual->val;
+//            if(&left(actual)==runner)
+//                new_value = actual_value | MASK_LEFT_COALESCE;
+//            else
+//                new_value = actual_value | MASK_RIGHT_COALESCE;
+//        }while(!__sync_bool_compare_and_swap(&actual->val,actual_value, new_value)); // TODO use fetch_&_or
+
         runner = actual;
         actual = parent_idx_by_idx(actual);
     }
@@ -510,9 +497,9 @@ void bd_xx_free(void* n){
     pos = pos / MIN_ALLOCABLE_BYTES;
     pos = free_tree[pos].pos;
     update_freemap(level_by_idx(pos), pos);
-    BD_LOCK(&glock);
+    BD_LOCK(&ROOT.lock);
     internal_free_node2(pos, max_level);
-    BD_UNLOCK(&glock);
+    BD_UNLOCK(&ROOT.lock);
 #ifdef DEBUG
 	__sync_fetch_and_add(node_allocated,-1);
 	__sync_fetch_and_add(size_allocated,-(n->mem_size));
@@ -792,7 +779,7 @@ void bd_xx_free(void* n){
 //         //printf("%u has %lu B\n", tree[i]->pos, tree[i]->mem_size);
 //     }
 // }
-//
+
 //
 //void write_on_a_file_in_ampiezza_start(unsigned int iter){
 //     char filename[128];
@@ -819,4 +806,3 @@ void bd_xx_free(void* n){
 //  
 //     fclose(f);
 // }
-//

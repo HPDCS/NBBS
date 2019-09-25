@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <sys/mman.h>
 #include <pthread.h>
-#include "nb1lvl.h"
+#include "nballoc.h"
 #include "utils.h"
 
 
@@ -76,17 +76,10 @@ static volatile unsigned long levels = NUM_LEVELS; //ROOT è a livello 1, mentre
 static unsigned int overall_height;
 static unsigned int max_level; //Ultimo livello utile per un allocazione
 
-#ifdef BD_SPIN_LOCK
-BD_LOCK_TYPE glock;
-#endif
-
-
 volatile int init_phase = 0;
 
 //extern int number_of_processes;
 extern taken_list* takenn;
-
-
 
 static void init_tree(unsigned long number_of_nodes);
 static unsigned int alloc2(unsigned int);
@@ -232,17 +225,6 @@ static void init_tree(unsigned long number_of_nodes){
         node parent = parent_ptr_by_idx(i);
         tree[i].mem_size = parent.mem_size / 2;
 	}
-
-    #ifdef BD_SPIN_LOCK
-    #if BD_SPIN_LOCK == 0
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(&(glock), &attr);
-    #else
-    pthread_spin_init(&(glock), PTHREAD_PROCESS_SHARED);
-    #endif
-    #endif
 }
 
 /*
@@ -298,9 +280,7 @@ void* bd_xx_malloc(size_t byte){
     
     //quando faccio un giro intero ritorno NULL
     do{
-        BD_LOCK(&glock);
         failed_at_node = alloc2(actual);
-        BD_UNLOCK(&glock);
         if(failed_at_node == 0){
 #ifdef DEBUG
 			__sync_fetch_and_add(node_allocated,1);
@@ -393,9 +373,7 @@ static unsigned int alloc2(unsigned int n){
             else{
               new_value = (new_value & MASK_CLEAN_RIGHT_COALESCE) | MASK_OCCUPY_RIGHT;
             }
-            #ifndef BD_SPIN_LOCK  
-                tree[actual].val = actual_value = new_value;
-            #endif
+
         }while(new_value != actual_value && //CONTROLLA!!!
                 !__sync_bool_compare_and_swap(&(tree[actual].val), actual_value, new_value));
     }
@@ -435,9 +413,6 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
                 new_val = new_val & ((MASK_CLEAN_RIGHT_COALESCE & MASK_CLEAN_OCCUPIED_RIGHT));
             
                 
-            #ifndef BD_SPIN_LOCK  
-                tree[actual].val = actual_value = new_val;
-            #endif
         } while (new_val != actual_value && !__sync_bool_compare_and_swap(&(tree[actual].val),actual_value,new_val));
 
     }while( (level_by_idx(actual) != upper_bound) &&
@@ -510,9 +485,7 @@ void bd_xx_free(void* n){
     pos = pos / MIN_ALLOCABLE_BYTES;
     pos = free_tree[pos].pos;
     update_freemap(level_by_idx(pos), pos);
-    BD_LOCK(&glock);
     internal_free_node2(pos, max_level);
-    BD_UNLOCK(&glock);
 #ifdef DEBUG
 	__sync_fetch_and_add(node_allocated,-1);
 	__sync_fetch_and_add(size_allocated,-(n->mem_size));
