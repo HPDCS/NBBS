@@ -1,17 +1,18 @@
 #!/bin/bash
 
 THREAD_list="1 2 4 8 16 24 32"		#numero di thread
-RUN_list="1 2 3 4 5 6 7 8 9 10"					#lista del numero di run
+RUN_list="1 2 3 4"					#lista del numero di run
 #ALLOC_list="hoard 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
 ALLOC_list="4lvl-sl 4lvl-nb 1lvl-sl 1lvl-nb" #"buddy-sl 4lvl-nb 1lvl-nb 4lvl-sl 1lvl-sl ptmalloc3 libc"
 SIZE_list="8 128 1024"
 
 
-
 make clean
-make NUM_LEVELS=24 MAX=16384 MIN=8
+make NUM_LEVELS=20 MAX=8192 MIN=8
 
-FOLDER="results-${NUM_LEVELS}-${MAX}"
+NUM_LEVELS=20
+MAX=8192
+FOLDER="kernel_results_${NUM_LEVELS}_${MAX}"
 
 mkdir ${FOLDER}
 
