@@ -130,6 +130,8 @@ Bitmap for container:
 #define is_left_by_idx(n)	(1ULL & (~(n)))
 #define is_right_by_idx(n)	(1ULL & ( (n)))
 
+#define bunchroot_idx_by_idx_and_lvl(n, lvl) ( (n) >> ( (lvl) & 3ULL) )
+
 //PARAMETRIZZAZIONE
 #define LEVEL_PER_CONTAINER 4
 
@@ -164,12 +166,12 @@ unsigned int partecipants=0;
 /* DICHIARAZIONE DI FUNZIONI *//*---------------------------------------------------------------------------------------------*/
 
 static void init_tree(unsigned long long number_of_nodes);
-static unsigned long long alloc(node* n);
-static void marca(node* n, unsigned int upper_bound);
+static unsigned long long alloc(unsigned long long n);
+static void marca(unsigned long long n, unsigned int upper_bound);
 static bool IS_OCCUPIED(unsigned long long, unsigned);
-static unsigned long long check_parent(node* n);
-static void smarca(node* n, unsigned int upper_bound);
-static void internal_free_node(node* n, unsigned int upper_bound);
+static unsigned long long check_parent(unsigned long long n);
+static void smarca(unsigned long long n, unsigned int upper_bound);
+static void internal_free_node(unsigned long long n, unsigned int upper_bound);
 void* bd_xx_malloc(size_t pages);
 
 
@@ -326,7 +328,7 @@ if(!actual)	actual = started_at = starting_node + (tid) * ((last_node - starting
 	//quando faccio un giro intero ritorno NULL
 	do{
   	    BD_LOCK(&glock);
-		failed_at = alloc(&tree[actual]);
+		failed_at = alloc(actual);
 	    BD_UNLOCK(&glock);     
 		if(failed_at == 0)
 		{
@@ -408,26 +410,27 @@ static inline bool IS_ALLOCABLE(unsigned long long val, unsigned int pos){
  @param n: nodo presunto libero (potrebbe essere diventato occupato concorrentemente)
  @return true se l'allocazione riesce, false altrimenti
  */
-static unsigned long long alloc(node* n){
-	unsigned long long old_val, new_val, n_pos;
-	
-	n_pos = n->container_pos;
-	
+static unsigned long long alloc(unsigned long long n){
+	unsigned long long old_val, new_val, n_pos, n_lvl;
+	unsigned long long *container;
+	n_pos = n;
+	n_lvl = level_by_idx(n_pos);
+	container = &tree[n].container->nodes;
 	do{
-		new_val = old_val = n->container->nodes;
+		new_val = old_val = *container;
 		
 		if(!IS_ALLOCABLE(new_val, n_pos)){
-			return n->pos;
+			return n_pos;
 		}
 		
 		new_val = occupa_container(n_pos, new_val);
 		#ifdef BD_SPIN_LOCK
-			n->container->nodes = old_val = new_val;
+			*container = old_val = new_val;
 		#endif
-	}while(new_val!=old_val && !__sync_bool_compare_and_swap(&n->container->nodes, old_val, new_val));
+	}while(new_val!=old_val && !__sync_bool_compare_and_swap(container, old_val, new_val));
 	
 	//if(n->container->bunch_root == &ROOT){
-	if(level_by_idx(n->container->bunch_root->pos) <= max_level){
+	if( level_by_idx(bunchroot_idx_by_idx_and_lvl(n_pos, n_lvl))  <= max_level){
 		return 0;
 	}
 
@@ -443,25 +446,28 @@ static unsigned long long alloc(node* n){
  @param n: nodo da cui iniziare la risalita (che è già marcato totalmente o parzialmente). Per costruzione della alloc, n è per forza un nodo radice di un grappolo generico (ma sicuramente non la radice)
  @return true se la funzione riesce a marcare tutti i nodi fino alla radice; false altrimenti.
  */
-static unsigned long long check_parent(node* n){
+static unsigned long long check_parent(unsigned long long nidx){
 	unsigned long long new_val, old_val, tmp_container_pos, p_pos;
-	node* parent = n, *upper_bound, *bunchroot;
+	unsigned long long br_idx, n_lvl;
+	unsigned long long *container;
+	node* parent;
+	n_lvl = level_by_idx(nidx);
 	do{
-		bunchroot = BUNCHROOT(parent);
-		upper_bound = bunchroot;
-		parent = &parent_ptr_by_ptr(bunchroot);
-		p_pos = parent->container_pos; 
+		br_idx = bunchroot_idx_by_idx_and_lvl(nidx, n_lvl);
+		parent = &parent_ptr_by_idx(br_idx);
+		p_pos  = parent->container_pos; 
 		
 		do{
 			tmp_container_pos = p_pos; 
-			new_val = old_val = parent->container->nodes;
+			container = &parent->container->nodes;
+			new_val = old_val = *container;
 			
-			if(IS_OCCUPIED(parent->container->nodes, tmp_container_pos)){
-				internal_free_node(n, level_by_idx(upper_bound->pos));
-				return parent->pos;
+			if(IS_OCCUPIED(old_val, tmp_container_pos)){
+				internal_free_node(nidx, level_by_idx(br_idx));
+				return nidx;
 			}
 			
-			if(is_left_by_idx(bunchroot->pos)){
+			if(is_left_by_idx(br_idx)){
 				new_val = CLEAN_LEFT_COALESCE(new_val, tmp_container_pos);
 				new_val = OCCUPY_LEFT(new_val, tmp_container_pos);
 			}else{
@@ -473,11 +479,13 @@ static unsigned long long check_parent(node* n){
 				new_val = LOCK_NOT_A_LEAF(new_val, tmp_container_pos);
 			}
 			#ifdef BD_SPIN_LOCK
-				parent->container->nodes = old_val = new_val;
+				*container = old_val = new_val;
 			#endif
 
-		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent->container->nodes),old_val,new_val));
-	}while(level_by_idx(BUNCHROOT(parent)->pos) > max_level);	
+		}while(new_val!=old_val && !__sync_bool_compare_and_swap(container,old_val,new_val)); 
+		nidx = parent_idx_by_idx(br_idx);
+		n_lvl = level_by_idx(nidx);
+	}while(n_lvl > max_level);	
 	
 	return 0;
 }
@@ -521,7 +529,7 @@ void bd_xx_free(void* n){
     pos = free_tree[pos].pos;
     update_freemap(level_by_idx(pos), pos);
     BD_LOCK(&glock);
-    internal_free_node(&tree[pos], max_level);
+    internal_free_node(pos, max_level);
 	BD_UNLOCK(&glock);
 
 #ifdef DEBUG
@@ -541,27 +549,32 @@ void bd_xx_free(void* n){
 	3) vengo smarcati i grappoli antecedenti (funzione smarca)
  @param n è un nodo generico ma per come facciamo qui la allocazione tutto il suo ramo è marcato.
 */
-static void internal_free_node(node* n, unsigned int upper_bound){
-	unsigned long long old_val, new_val, p_pos, n_pos;
+static void internal_free_node(unsigned long long pos, unsigned int upper_bound){
+	unsigned long long old_val, new_val, n_pos;
 	bool do_exit = false;
+	node* n = &tree[pos];
+	unsigned long long n_lvl 	= level_by_idx(pos); //n->pos;
+	unsigned long long br_idx   = bunchroot_idx_by_idx_and_lvl(pos, n_lvl);
+	unsigned long long br_lvl   = level_by_idx(br_idx);
+	unsigned long long *container = &n->container->nodes;
 	
 	
 	// FASE 1
-	if(level_by_idx(BUNCHROOT(n)->pos) > upper_bound)//TODO: sistemare marca per togliere il controllo qui
-		marca(BUNCHROOT(n), upper_bound);
+	if(br_lvl > upper_bound)//TODO: sistemare marca per togliere il controllo qui
+		marca(br_idx, upper_bound);
 	// FASE 2
 	do{
-		n_pos = p_pos = n->container_pos; 
-		old_val = new_val = n->container->nodes;
+		n_pos = n->container_pos; 
+		old_val = new_val = *container;
 		new_val = libera_container(n_pos, new_val, &do_exit);
 		#ifdef BD_SPIN_LOCK
-		n->container->nodes = old_val = new_val;
+		*container = old_val = new_val;
 		#endif
-	}while(new_val!=old_val && !__sync_bool_compare_and_swap(&n->container->nodes,old_val, new_val));
+	}while(new_val!=old_val && !__sync_bool_compare_and_swap(container,old_val, new_val));
 	
 	// FASE 3
-	if(level_by_idx(BUNCHROOT(n)->pos) > upper_bound && !do_exit)
-		smarca(BUNCHROOT(n), upper_bound);
+	if(br_lvl > upper_bound && !do_exit)
+		smarca(br_idx, upper_bound);
 }
 
 
@@ -570,26 +583,34 @@ static void internal_free_node(node* n, unsigned int upper_bound){
  @param n è la radice di un grappolo. Bisogna settare in coalescing il padre.
  @return il valore precedente con un singolo nodo marcato come "coalescing"
  */
-static void marca(node* n, unsigned int upper_bound){
-	node* parent = n;
+static void marca(unsigned long long n_idx, unsigned int upper_bound){
+	node* parent;
 	unsigned long long old_val, new_val, p_pos;
 	bool is_left_son;
+	unsigned long long n_lvl = level_by_idx(n_idx);
+	unsigned long long br_idx = bunchroot_idx_by_idx_and_lvl(n_idx, n_lvl);
+	unsigned long long *container;
 	do{
-		is_left_son = is_left_by_idx(BUNCHROOT(parent)->pos); 
-		parent = &parent_ptr_by_ptr(BUNCHROOT(parent));
+		is_left_son = is_left_by_idx(br_idx); 
+		parent = &parent_ptr_by_idx(br_idx);
 		p_pos = parent->container_pos;
-		
+		container = &parent->container->nodes;
+
 		do{
-			old_val = new_val = parent->container->nodes;
+			old_val = new_val = *container;
 			new_val = new_val | (COALESCE_RIGHT(0, p_pos) << is_left_son);
 			if(new_val==old_val)										//SPAA2018
 				return;													//SPAA2018
 			#ifdef BD_SPIN_LOCK
-			parent->container->nodes = old_val = new_val;
+			*container = old_val = new_val;
 			#endif
-		}while(old_val != new_val && !__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
+		}while(old_val != new_val && !__sync_bool_compare_and_swap(container, old_val, new_val));
 //		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&parent->container->nodes, old_val, new_val));
-	}while(level_by_idx(BUNCHROOT(parent)->pos) > upper_bound);
+		
+		n_idx  = parent_idx_by_idx(br_idx);
+		n_lvl  = level_by_idx(n_idx);
+		br_idx = bunchroot_idx_by_idx_and_lvl(n_idx, n_lvl);		
+	}while(level_by_idx(br_idx) > upper_bound);
 }
 
 
@@ -599,21 +620,24 @@ static void marca(node* n, unsigned int upper_bound){
  @param n: n è la radice di un grappolo (BISOGNA SMARCARE DAL PADRE)
  
  */
-static void smarca(node* n, unsigned int upper_bound){
+static void smarca(unsigned long long n, unsigned int upper_bound){
 	unsigned long long old_val, new_val, p_pos;
 	bool do_exit=false, is_left_son;
 	node *parent;
-	parent = n;
+	unsigned long long n_idx = n;
+	unsigned long long n_lvl = level_by_idx(n_idx);
+	unsigned long long br_idx = bunchroot_idx_by_idx_and_lvl(n_idx, n_lvl);
+	unsigned long long *container;
 
 	do{
-		is_left_son = is_left_by_idx(BUNCHROOT(parent)->pos); 
-		parent = &parent_ptr_by_ptr(BUNCHROOT(parent));
+		is_left_son = is_left_by_idx(br_idx); 
+		parent = &parent_ptr_by_idx(br_idx);
 		p_pos = parent->container_pos;
-			
+		container = &parent->container->nodes;			
 		do{
 			do_exit = false;
 			
-			old_val = new_val = parent->container->nodes;
+			old_val = new_val = *container;
 			
 			if(is_left_son){
 				if(!IS_COALESCING_LEFT(new_val, p_pos)) //qualcuno l'ha già pulito
@@ -651,8 +675,11 @@ static void smarca(node* n, unsigned int upper_bound){
 			parent_ptr_by_ptr(parent).container->nodes = old_val = new_val;
 			#endif
 		}while(new_val!=old_val && !__sync_bool_compare_and_swap(&(parent_ptr_by_ptr(parent).container->nodes), old_val, new_val));
-	
-	}while(level_by_idx(BUNCHROOT(parent)->pos) > upper_bound && !do_exit);
+		
+		n_idx = br_idx;
+		n_lvl = level_by_idx(br_idx);
+		br_idx = bunchroot_idx_by_idx_and_lvl(n_idx, n_lvl);
+	}while(level_by_idx(br_idx) > upper_bound && !do_exit);
 	
 }
 
