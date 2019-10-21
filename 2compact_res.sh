@@ -16,11 +16,11 @@ FOLDER="kernel_results_${NUM_LEVELS}_${MAX}"
 #make clean
 #make NUM_LEVELS=20
 
-mkdir kdat
-mkdir kdat/TBLS
-mkdir kdat/TBTT
-mkdir kdat/TBFS
-mkdir kdat/LRSN
+mkdir -p kdat
+mkdir -p kdat/TBLS
+mkdir -p kdat/TBTT
+mkdir -p kdat/TBFS
+mkdir -p kdat/LRSN
 #mkdir ${FOLDER}
 
 
@@ -152,6 +152,9 @@ do
 	#done
 done
 ############################################################################################################################
+
+exit	
+
 for size in $SIZE_list
 do
 	DAT3="kdat/LRSN/LRSN-$size"; touch $DAT3.dat
