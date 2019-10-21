@@ -3,10 +3,13 @@ if ( tst eq "TBLS" ) set ylabel offset 0 "Seconds (s)"
 if ( tst eq "TBFS" ) set ylabel offset 0 "Seconds (s)" 
 if ( tst eq "LRSN" ) set ylabel offset 0 "Throughput (KOps/sec)"
 
-if ( tst eq "TBTT" ) set title        "Thread test - Bytes=".sz
-if ( tst eq "TBLS" ) set title  "Linux Scalability - Bytes=".sz
-if ( tst eq "TBFS" ) set title "Constant Occupancy - Bytes=".sz 
-if ( tst eq "LRSN" ) set title             "Larson - Bytes=".sz
+if ( sz eq "8" ) szs="4KB"
+if ( sz eq "256" ) szs="128KB"
+
+if ( tst eq "TBTT" ) set title        "Thread test - Bytes=".szs
+if ( tst eq "TBLS" ) set title  "Linux Scalability - Bytes=".szs
+if ( tst eq "TBFS" ) set title "Constant Occupancy - Bytes=".szs 
+if ( tst eq "LRSN" ) set title             "Larson - Bytes=".szs
 
 set termoption dash
 
@@ -39,9 +42,9 @@ set yrange [*:*]
 
 
 if ( tst eq "LRSN" ) set yrange [80:*]
-if ( tst eq "TBFS" ) set yrange [*:300]
-if ( tst eq "TBLS" ) set yrange [*:200]
-if ( tst eq "TBTT" ) set yrange [*:200]
+if ( tst eq "TBFS" ) set yrange [10:100]
+if ( tst eq "TBLS" ) set yrange [1:20]
+if ( tst eq "TBTT" ) set yrange [0.1:20]
 
 set xrange [3:33]
 
@@ -55,11 +58,11 @@ set style line 5 lt 1 lc rgb "violet" lw 2
 
 set nokey
 
-set output './plots/'.tst.'/'.tst.'-'.sz.'.eps'
+set output './kplots/'.tst.'/'.tst.'-'.sz.'.eps'
 plot    './kdat/'.tst.'/'.tst.'-'.sz.'.dat'  	u 1:($2/d) 	t "4lvl-nb" 		w lp pt 8 ps 2.5 lw 2 lt 1,\
 		''										u 1:($3/d) 	t "1lvl-nb" 		w lp pt 6 ps 2.5 lw 2 lt 1,\
-		''										u 1:($4/d) 	t "4lvl-sl" 		w lp pt 8 ps 2.5 lw 2 lt 2 ,\
-		''										u 1:($5/d) 	t "1lvl-sl" 		w lp pt 6 ps 2.5 lw 2 lt 2,\
+		''										u 1:($4/d) 	t "buddy-sl" 		w lp pt 3 ps 2.5 lw 2 lt 1 ,\
+		''										u 1:($5/d) 	t "kernel-sl" 		w lp pt 2 ps 2.5 lw 2 lt 1;#,\
 		''										u 1:($6/d) 	t "buddy-sl"		w lp pt 3 ps 2.5 lw 2 lt 1;#\
 		                                   																  ,\
 		''										u 1:($7/d) 	t "libc" 			w lp pt 2 ps 1.5 lw 2 lt 1,\
