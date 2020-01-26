@@ -18,7 +18,6 @@
 #endif
 
 typedef struct _node{
-	BD_LOCK_TYPE lock;
     unsigned long long val; //per i bit etc;
     unsigned int mem_start; //spiazzamento all'interno dell'overall_memory
     unsigned int mem_size;
