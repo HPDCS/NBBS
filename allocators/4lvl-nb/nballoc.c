@@ -42,11 +42,18 @@
 *********************************************
 
 Bitmap for container:
-   47		 13 	12				11					10					9				8		 7  6  5  4  3  2  1  0	
-  |------------|-----------|--------------------|--------------------|--------------|--------------|--|--|--|--|--|--|--|--|
-  | RPEAT FOR  | OCCUPANCY | PENDING COALESCING | PENDING COALESCING | OCCUPANCY OF | OCCUPANCY OF |   ONE OCCUPANCY BIT   |
-  | EACH LEAF  |		   | OPS ON LEFT  CHILD | OPS ON RIGHT CHILD | LEFT CHILD   | RIGHT CHILD  |   FOR EACH NOT LEAF   |
-  |------------|-----------|--------------------|--------------------|--------------|--------------|--|--|--|--|--|--|--|--|
+ 48 		 43    		 38          33           28          23		 18          13		      8  7  6  5  4  3  2  1  0	
+  |-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|--|--|--|--|--|--|--|--|
+  | 15th NODE | 14th NODE | 13th NODE | 12th NODE | 11th NODE | 10th NODE |  9th NODE |  8th NODE |   ONE OCCUPANCY BIT   |
+  |-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|--|--|--|--|--|--|--|--|
+                                                                                            |
+                                                                                            |
+                                                                                            |
+    	     12				      11		           10              9              8	    |	
+  |-----------|--------------------|--------------------|--------------|--------------|     |
+  | OCCUPANCY | PENDING COALESCING | PENDING COALESCING | OCCUPANCY OF | OCCUPANCY OF |<----|
+  |		      | OPS ON LEFT  CHILD | OPS ON RIGHT CHILD | LEFT CHILD   | RIGHT CHILD  |
+  |-----------|--------------------|--------------------|--------------|--------------|
 
 */
 
@@ -60,6 +67,7 @@ Bitmap for container:
 #define LOCK_LEAF_MASK		(0x13ULL)
 #define LOCK_NOT_LEAF_MASK	(0x1ULL)
 #define LEAF_MASK_SIZE 		(0x5ULL)
+
 
 #define LEAF_START_POSITION (8) //la prima foglia del grappolo.. dipende dalla grandezza dei grappoli e si riferisce al node_container
 
@@ -411,11 +419,12 @@ static inline bool IS_ALLOCABLE(unsigned long long val, unsigned int pos){
  @return true se l'allocazione riesce, false altrimenti
  */
 static unsigned long long alloc(unsigned long long n){
-	unsigned long long old_val, new_val, n_pos, n_lvl;
-	unsigned long long *container;
+	unsigned long long old_val, new_val, n_pos, n_bpos, n_lvl;
+	unsigned long long * volatile container;
 	n_pos = n;
 	n_lvl = level_by_idx(n_pos);
 	container = &tree[n].container->nodes;
+	n_bpos = tree[n].container_pos;
 	do{
 		new_val = old_val = *container;
 		
