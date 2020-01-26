@@ -46,7 +46,7 @@ void parallel_try(){
 	
 	void *obt;
 	
-	tentativi = ops[myid] = 20000000 / number_of_processes ;
+	tentativi = ops[myid] = 20000000; // / number_of_processes ;
 	i = 0;
 
 	srand(17*myid);

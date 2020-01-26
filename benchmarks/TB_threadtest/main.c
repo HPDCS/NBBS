@@ -52,7 +52,7 @@ void parallel_try(){
 	//taken_list_elem *t, *runner, *chosen;
 	
 	//scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
-	tentativi = ops[myid] = 10000 / number_of_processes ;
+	tentativi = ops[myid] = 10000;// / number_of_processes ;
 	i = j = 0;
 
 	srand(17*myid);
