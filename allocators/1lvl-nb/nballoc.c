@@ -64,9 +64,9 @@ Bitmap for each node:
 
 #define ROOT            (tree[1])
 
-#define lchild_idx_by_ptr(n)   (((n)->pos)*2)
+#define lchild_idx_by_ptr(n)   (((n)->pos)<<1)
 #define rchild_idx_by_ptr(n)   (lchild_idx_by_ptr(n)+1)
-#define parent_idx_by_ptr(n)   (((n)->pos)/2)
+#define parent_idx_by_ptr(n)   (((n)->pos)>>1)
 
 #define lchild_idx_by_idx(n)   (n << 1)
 #define rchild_idx_by_idx(n)   (lchild_idx_by_idx(n)+1)
@@ -82,7 +82,6 @@ Bitmap for each node:
 
 #define is_left_by_idx(n)      (1ULL & (~(n)))
 
-#define level(n)        ( (overall_height) - (log2_(( (n)->mem_size) / (MIN_ALLOCABLE_BYTES )) ))
 #define level_by_idx(n) ( 1 + (log2_(n)))
 
 
