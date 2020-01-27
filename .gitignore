@@ -18,4 +18,4 @@ TB_*-sl
 *-ptmalloc3
 *-hoard
 results/
-*perf.data*
+perf.data*
