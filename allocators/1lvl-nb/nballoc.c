@@ -223,10 +223,13 @@ void init(){
 
     
     if(first){
-        printf("\t Version SPAA 2018 0.1\n");
-        printf("1lvl-nb: UMA Init complete\n");
-		printf("\t Total Memory = %luB, %.0fKB, %.0fMB, %.0fGB\n" , overall_memory_size, overall_memory_size/1024.0, overall_memory_size/1048576.0, overall_memory_size/1073741824.0);
-		printf("\t Levels = %10llu\n", overall_height);
+#ifdef BD_SPIN_LOCK
+		printf("1lvl-sl: UMA Init complete\n");
+#else
+		printf("1lvl-nb: UMA Init complete\n");
+#endif
+        printf("\t Total Memory = %luB, %.0fKB, %.0fMB, %.0fGB\n" , overall_memory_size, overall_memory_size/1024.0, overall_memory_size/1048576.0, overall_memory_size/1073741824.0);
+		printf("\t Levels = %u\n", overall_height);
 		printf("\t Leaves = %10u\n", (number_of_nodes+1)/2);
 		printf("\t Nodes  = %10u\n", number_of_nodes);
 		printf("\t Min size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %u\n"   , MIN_ALLOCABLE_BYTES, MIN_ALLOCABLE_BYTES/1024.0, MIN_ALLOCABLE_BYTES/1048576.0, MIN_ALLOCABLE_BYTES/1073741824.0, overall_height);

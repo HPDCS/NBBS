@@ -262,7 +262,11 @@ static void init(){
 	
 	init_tree(number_of_nodes);
 				
+#ifdef BD_SPIN_LOCK
+	printf("4lvl-sl: UMA Init complete\n");
+#else
 	printf("4lvl-nb: UMA Init complete\n");
+#endif
 	printf("\t Total Memory = %lluB, %.0fKB, %.0fMB, %.0fGB\n", overall_memory_size, overall_memory_size/1024.0, overall_memory_size/1048576.0, overall_memory_size/1073741824.0);
 	printf("\t Levels = %10llu\n", overall_height);
 	printf("\t Leaves = %10u\n", (number_of_nodes+1)/2);
@@ -464,7 +468,7 @@ static unsigned long long check_parent(unsigned long long n_idx, unsigned long l
 	unsigned long long new_val, old_val, tmp_container_pos, p_b_pos, p_pos, p_lvl;
 	unsigned long long br_idx, br_lvl;
 	node* n2 = &tree[n_idx];
-	node* parent = n2, *upper_bound, *bunchroot;
+	node* parent = n2;
 	node_container *container;
 	
 	p_pos = n_idx;
