@@ -235,7 +235,7 @@ static void init(){
 	overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
 	overall_height = levels;
 	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES); //last valid allocable level
-	max_level = ((unsigned long long)((max_level-1)/4))*4 + 1;//max_level - max_level%4 + 1;  
+	//max_level = ((unsigned long long)((max_level-1)/4))*4 + 1;//max_level - max_level%4 + 1;  
 
 
 	overall_memory 	= mmap(NULL, overall_memory_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -249,15 +249,15 @@ static void init(){
 	}
 	
 	init_tree(number_of_nodes);
-		
+				
 	printf("4lvl-nb: UMA Init complete\n");
-	printf("\t Total Memory = %llu\n", overall_memory_size);
+	printf("\t Total Memory = %lluB, %.0fKB, %.0fMB, %.0fGB\n", overall_memory_size, overall_memory_size/1024.0, overall_memory_size/1048576.0, overall_memory_size/1073741824.0);
 	printf("\t Levels = %10llu\n", overall_height);
 	printf("\t Leaves = %10u\n", (number_of_nodes+1)/2);
 	printf("\t Nodes  = %10u\n", number_of_nodes);
 	printf("\t Containers = %u\n", number_of_container);
-	printf("\t Min size %12llu at level %2llu\n", MIN_ALLOCABLE_BYTES, overall_height);
-	printf("\t Max size %12llu at level %2llu\n", MAX_ALLOCABLE_BYTE, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+	printf("\t Min size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %2llu\n", MIN_ALLOCABLE_BYTES, MIN_ALLOCABLE_BYTES/1024.0, MIN_ALLOCABLE_BYTES/1048576.0, MIN_ALLOCABLE_BYTES/1073741824.0, overall_height);
+	printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %2llu\n", MAX_ALLOCABLE_BYTE, MAX_ALLOCABLE_BYTE/1024.0, MAX_ALLOCABLE_BYTE/1048576.0, MAX_ALLOCABLE_BYTE/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
 	printf("\t Max allocable level %2u\n", max_level);
 	
 }
