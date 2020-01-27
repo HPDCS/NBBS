@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <assert.h>
 #include "nb1lvl.h"
 #include <assert.h>
 #include "utils.h"
@@ -163,6 +164,7 @@ void init(){
 	}
 	
 	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES); //last valid allocable level
+	assert(max_level == 12);
     
    if(init_phase ==  0 && __sync_bool_compare_and_swap(&init_phase, 0, 1)){
 
@@ -222,14 +224,14 @@ void init(){
     
     if(first){
         printf("\t Version SPAA 2018 0.1\n");
-        printf("1lvl-nb: UMA Init complete\n");	
-    printf("\t Total Memory = %lluB, %.0fKB, %.0fMB, %.0fGB\n", overall_memory_size, overall_memory_size/1024.0, overall_memory_size/1048576.0, overall_memory_size/1073741824.0);
-	printf("\t Levels = %10llu\n", overall_height);
-	printf("\t Leaves = %10u\n", (number_of_nodes+1)/2);
-	printf("\t Nodes  = %10u\n", number_of_nodes);
-	printf("\t Min size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %2llu\n", MIN_ALLOCABLE_BYTES, MIN_ALLOCABLE_BYTES/1024.0, MIN_ALLOCABLE_BYTES/1048576.0, MIN_ALLOCABLE_BYTES/1073741824.0, overall_height);
-	printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %2llu\n", MAX_ALLOCABLE_BYTE, MAX_ALLOCABLE_BYTE/1024.0, MAX_ALLOCABLE_BYTE/1048576.0, MAX_ALLOCABLE_BYTE/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
-	printf("\t Max allocable level %2u\n", max_level);
+        printf("1lvl-nb: UMA Init complete\n");
+		printf("\t Total Memory = %luB, %.0fKB, %.0fMB, %.0fGB\n" , overall_memory_size, overall_memory_size/1024.0, overall_memory_size/1048576.0, overall_memory_size/1073741824.0);
+		printf("\t Levels = %10llu\n", overall_height);
+		printf("\t Leaves = %10u\n", (number_of_nodes+1)/2);
+		printf("\t Nodes  = %10u\n", number_of_nodes);
+		printf("\t Min size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %u\n"   , MIN_ALLOCABLE_BYTES, MIN_ALLOCABLE_BYTES/1024.0, MIN_ALLOCABLE_BYTES/1048576.0, MIN_ALLOCABLE_BYTES/1073741824.0, overall_height);
+		printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %u\n"   , MAX_ALLOCABLE_BYTE, MAX_ALLOCABLE_BYTE/1024.0, MAX_ALLOCABLE_BYTE/1048576.0, MAX_ALLOCABLE_BYTE/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+		printf("\t Max allocable level %2u\n", max_level);
     }
 }
 
