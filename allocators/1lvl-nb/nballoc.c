@@ -545,7 +545,7 @@ static inline void internal_free_node2(unsigned int n, unsigned int upper_bound)
 
 void bd_xx_free(void* n){
     unsigned long long tmp = ((unsigned long long)n) - (unsigned long long)overall_memory;
-    unsigned int pos = (unsigned long long) tmp;
+    unsigned long long pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
     pos = free_tree[pos].pos;
     update_freemap(level_by_idx(pos), pos);

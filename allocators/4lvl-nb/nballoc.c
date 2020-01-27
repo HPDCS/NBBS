@@ -548,7 +548,7 @@ static inline unsigned long long libera_container(unsigned long long n_pos, unsi
 
 void bd_xx_free(void* n){
     unsigned long long tmp = ((unsigned long long)n) - (unsigned long long)overall_memory;
-    unsigned int pos = (unsigned long long) tmp;
+    unsigned long long pos = (unsigned long long) tmp;
     pos = pos / MIN_ALLOCABLE_BYTES;
     pos = free_tree[pos].pos;
     update_freemap(level_by_idx(pos), pos);
