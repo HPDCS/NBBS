@@ -1,28 +1,27 @@
-
-/**************************************************************************
-   this user program allows you to access the sys_log_message 
-   and sys_get_message system calls added to the kernel via the
-   sys-call-table-hacker module
-
-   NUM_PAGES represents the virtual addressing span of the buffer
-   used as destination for sys_get_messge in case you compile
-   with the EMPTY_ZERO macro
-
-   NUM_EXTRACTIONS defines the number of iterations for calling the 
-   sys_get_message system-call - in case you run with EMPTY_ZERO it
-   must not exceed NUM_PAGES (since you are displacing page by page into 
-   the destination buffer while iterations go through)
-
-   if EMPTY_ZERO is not active then the buffer is of fixed size PAGE_SIZE
-   and is located on the .data section given that it is initialized
-
-   please try changing NUM_PAGES (and NUM_EXRACTIONS) when ZERO_EMPTY is active
-   and compare performance and actual run time (e.g. errors) vs the configuration 
-   with no EMPTY_ZERO
-
-   VERY IMPORTANT: argv[2] (the system-call number for the actual servoice to be invocked)
-   nust be retrived vi dmesg after mounting the sys-call-table-hacker module
-**************************************************************************/
+/**		      
+* This is free software; 
+* You can redistribute it and/or modify this file under the
+* terms of the GNU General Public License as published by the Free Software
+* Foundation; either version 3 of the License, or (at your option) any later
+* version.
+* 
+* This file is distributed in the hope that it will be useful, but WITHOUT ANY
+* WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+* A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+* 
+* You should have received a copy of the GNU General Public License along with
+* this file; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+* 
+* Copyright (c) 2017
+* 
+* 
+* Romolo Marotta 
+* 
+* 
+* This file implements an allocator that access directly the Linux Kernel Buddy system.
+* 
+*/
 
 #include <stdlib.h>
 #include <stdio.h>
