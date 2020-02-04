@@ -8,29 +8,12 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include <string.h>
-//#include "nballoc.h"
 #include "utils.h"
 #include "timer.h"
 #include <string.h>
 
-//#define MYDEBUG
-#define FAIL_END 12
-#define ITER 465
-#define SERBATOIO_DIM (16*8192)
-
-#ifndef ALLOC_SIZE
-#define ALLOC_SIZE 8
-#endif
-
-
-void* bd_xx_malloc(size_t);
-void  bd_xx_free(void*);
-
-//__thread taken_list* takenn;
-//__thread taken_list* takenn_serbatoio;
 
 unsigned int number_of_processes;
-//unsigned int master;
 unsigned int pcount = 0;
 __thread unsigned int myid=0;
 
@@ -39,41 +22,27 @@ static unsigned long long *volatile memory;
 unsigned int *start;
 
 unsigned long long fixed_size;
+unsigned int fixed_order;
 
+#if KERNEL_BD == 0
+#include "main.h"
+#endif
 
-void parallel_try(){
-	unsigned int i, tentativi;
-	
-	void *obt;
-	
-	tentativi = ops[myid] = 20000000; // / number_of_processes ;
-	i = 0;
-
-	srand(17*myid);
-	
-	for(i=0;i<tentativi;i++){
-		obt = TO_BE_REPLACED_MALLOC(fixed_size);
-		if (obt==NULL){
-			failures[myid]++;
-			continue;
-		}
-
-		allocs[myid]++;
-		TO_BE_REPLACED_FREE(obt);
-		frees[myid]++;
-	}
-}
 
 void * init_run(){
 	unsigned int j;
+	void *ptr;
 	
 	//child code, do work and exit.
 	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 	
 	
 	while(*start==0);
-	
-	parallel_try();
-	
+#if KERNEL_BD == 0
+	ops[myid] = ITERATIONS;
+	linux_scalability(fixed_size, allocs+myid, failures+myid, frees+myid);
+#else	
+	syscall(134,fixed_order, allocs+myid, failures+myid, frees+myid);
+#endif
 	pthread_exit(NULL);
 }
 
@@ -109,6 +78,7 @@ int main(int argc, char**argv){
 	}
 	number_of_processes=atoi(argv[1]);
 	fixed_size = atoll(argv[2]);
+	fixed_order = convert_to_level(fixed_size);
 	
 	pthread_t p_tid[number_of_processes];    
 	for(i=0; i<number_of_processes; i++){

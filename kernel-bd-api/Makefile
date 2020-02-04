@@ -4,6 +4,7 @@ obj-m += bd_api.o
 ifdef SYS_TABLE
 FLAGS := -DSYSCALL_TABLE=$(SYS_TABLE)
 FLAGS += -DNI_SYSCALL=$(NI_SYSCALL)
+FLAGS += -D'TO_BE_REPLACED_MALLOC(x)=__get_free_pages(GFP_KERNEL, x)' -D'TO_BE_REPLACED_FREE(x)=free_pages(x)' -DKERNEL_BD=1
 endif
 
 all:

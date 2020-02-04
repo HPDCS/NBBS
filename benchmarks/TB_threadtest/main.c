@@ -6,32 +6,14 @@
 #include <sys/mman.h>
 #include <time.h>
 #include <pthread.h>
-#include <sys/wait.h>
 #include "utils.h"
 #include "timer.h"
 #include <string.h>
 
-//#define MYDEBUG
-#define FAIL_END 12
-#define ITER 465
-#define SERBATOIO_DIM (16*8192)
-
-
-#ifndef ALLOC_SIZE
-#define ALLOC_SIZE 8
-#endif
-
-
 void* bd_xx_malloc(size_t);
 void  bd_xx_free(void*);
 
-//__thread taken_list* takenn;
-//__thread taken_list* takenn_serbatoio;
-
-__thread void *addrs[100000];
-
 unsigned int number_of_processes;
-//unsigned int master;
 unsigned int pcount = 0;
 __thread unsigned int myid=0;
 
@@ -40,55 +22,27 @@ static unsigned long long *volatile memory;
 unsigned int *start;
 
 unsigned long long fixed_size;
+unsigned int fixed_order;
 
 
-void parallel_try(){
-	unsigned int i, j, tentativi;
-	//unsigned int scelta_lvl;
-	unsigned int tmp = 0;
-	
-	
-	void *obt;
-	//taken_list_elem *t, *runner, *chosen;
-	
-	//scelta_lvl = log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);
-	tentativi = ops[myid] = 10000 / number_of_processes ;
-	i = j = 0;
-
-	srand(17*myid);
-	
-	for(j=0; j<200; j++){
-		
-		//printf("[%u] all:%llu free:%llu fail:%llu\n", myid, allocs[myid], frees[myid], failures[myid]);
-				
-		for(i=0;i<tentativi;i++){
-			addrs[i] = TO_BE_REPLACED_MALLOC(fixed_size);
-			if(addrs[i]==NULL){
-				failures[myid]++;
-			}
-			else
-				allocs[myid]++;
-		}
-		
-		for(i=0;i<tentativi;i++){
-			if(addrs[i]!=NULL){
-				TO_BE_REPLACED_FREE(addrs[i]);
-				frees[myid]++;
-			}
-		}
-	}
-}
+#if KERNEL_BD == 0
+#include "main.h"
+#endif
 
 void * init_run(){
 	unsigned int j;
+	void *ptr;
 	
 	//child code, do work and exit.
-	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 
+	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 	
 	
 	while(*start==0);
-	
-	parallel_try();
-	
+#if KERNEL_BD == 0
+	ops[myid] = TT_ITERATIONS * TT_OBJS / number_of_processes;
+	threadtest(fixed_size, number_of_processes, allocs+myid, failures+myid, frees+myid);
+#else	
+	syscall(174,fixed_order, number_of_processes,  allocs+myid, failures+myid, frees+myid);
+#endif
 	pthread_exit(NULL);
 }
 
@@ -124,6 +78,7 @@ int main(int argc, char**argv){
 	}
 	number_of_processes = atoi(argv[1]);
 	fixed_size = atoll(argv[2]);
+	fixed_order = convert_to_level(fixed_size);
 	
 	pthread_t p_tid[number_of_processes];    
 	for(i=0; i<number_of_processes; i++){
@@ -145,7 +100,7 @@ int main(int argc, char**argv){
 	   
 		
 	printf("_______________________________________\n");
-		printf("tot_ops expected: %10llu\n",  ops[0]);
+	printf("tot_ops expected: %10llu\n",  ops[0]);
 		
 	for(i=0;i<number_of_processes;i++){
 		//if(i>0) printf(". . . . . . . . . . . . . . . \n");
@@ -154,6 +109,7 @@ int main(int argc, char**argv){
 		printf("\t dealloca: %10llu ;", frees[i]);
 		printf("\t failures: %10llu ;", failures[i]);
 		printf("\t memory  : %10llu Bytes \n", memory[i]);
+		printf("\t ops  : %10llu  \n", ops[i]);
 		total_fail += failures[i];
 		total_alloc += allocs[i];
 		total_free += frees[i];
