@@ -19,3 +19,9 @@ TB_*-sl
 *-hoard
 results/
 perf.data*
+*.mod.*
+*.mod
+*.ko
+*.order
+*.cmd
+
