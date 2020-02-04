@@ -25,3 +25,4 @@ perf.data*
 *.order
 *.cmd
 
+kernel-bd-api/system.conf
