@@ -31,7 +31,6 @@ unsigned int fixed_order;
 
 void * init_run(){
 	unsigned int j;
-	void *ptr;
 	
 	//child code, do work and exit.
 	myid = __sync_fetch_and_add(&pcount, 1);//myid = getpid() % number_of_processes;// 	
@@ -70,7 +69,6 @@ int main(int argc, char**argv){
 	unsigned long long total_fail = 0, total_alloc = 0, total_free = 0, total_ops = 0;
 	unsigned long long total_mem = 0;
 	
-	srand(17);
 	
 	if(argc!=3){
 		printf("usage: ./a.out <number of threads>\n");
@@ -109,7 +107,6 @@ int main(int argc, char**argv){
 		printf("\t dealloca: %10llu ;", frees[i]);
 		printf("\t failures: %10llu ;", failures[i]);
 		printf("\t memory  : %10llu Bytes \n", memory[i]);
-		printf("\t ops  : %10llu  \n", ops[i]);
 		total_fail += failures[i];
 		total_alloc += allocs[i];
 		total_free += frees[i];
