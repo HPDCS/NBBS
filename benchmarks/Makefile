@@ -1,5 +1,5 @@
 GIT_BENCH = cache-scratch  cache-thrash  common  larson  linux-scalability  phong threadtest
-SKIP = common/ TB_skeleton/ cache-scratch/  cache-thrash/ linux-scalability/  phong/ threadtest/ TB_fixed-size/ TB_cached_allocation/  TB_same-size/
+SKIP = common/ TB_skeleton/ cache-scratch/  cache-thrash/ linux-scalability/  phong/ threadtest/ TB_cached_allocation/  TB_same-size/
 DIRS = $(wildcard */)
 
 
