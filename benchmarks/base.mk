@@ -35,15 +35,15 @@ $(TARGET)-libc: $(TARGET)-libc.o
 #	@echo compiling for $@
 #	$(CC) $(FLAGS)  main.c ../../allocators/$*-sl/nballoc.c ../../utils/utils.c  -I$(BASE_ALLOCATORS)/$*-sl -I../../utils -o $(TARGET)-$*-sl -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-sl"'
 
-$(TARGET)-%-nb: main.c #$(BASE_ALLOCATORS)/$(TARGET)-%-nb/nballoc.o
+$(TARGET)-%-nb: main.c main.h #$(BASE_ALLOCATORS)/$(TARGET)-%-nb/nballoc.o
 	@echo compiling for $@
 	$(CC) $(FLAGS) main.c  -I../../utils  -I$(abspath ../../allocators/$*-nb) -L$(abspath ../../allocators/$*-nb) -l$*-nb  -o $(TARGET)-$*-nb -DALLOCATOR=$*-nb -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-nb"'
 
-$(TARGET)-kernel-sl: main.c 
+$(TARGET)-kernel-sl: main.c main.h
 	@echo compiling for $@
 	$(CC) $(FLAGS) main.c  -I../../utils -o $(TARGET)-kernel-sl -DALLOCATOR=kernel-sl  -lpthread -D'ALLOCATOR_NAME="kernel-sl"' -D'KERNEL_BD=1'
 
-$(TARGET)-%-sl: main.c #$(BASE_ALLOCATORS)/$(TARGET)-%-sl/nballoc.o
+$(TARGET)-%-sl: main.c main.h #$(BASE_ALLOCATORS)/$(TARGET)-%-sl/nballoc.o
 	@echo compiling for $@
 	$(CC) $(FLAGS) main.c  -I../../utils  -I$(abspath ../../allocators/$*-sl) -L$(abspath ../../allocators/$*-sl) -l$*-sl -o $(TARGET)-$*-sl -DALLOCATOR=$*-sl -D'TO_BE_REPLACED_MALLOC(x)=bd_xx_malloc(x)' -D'TO_BE_REPLACED_FREE(x)=bd_xx_free(x)' -lpthread -D'ALLOCATOR_NAME="$*-sl"'
 
@@ -52,12 +52,12 @@ $(TARGET)-%: $(TARGET)-%.o  #$(BASE_ALLOCATORS)/%/nballoc.o
 	@echo linking $* $(TARGET)-$*.o $(BASE_ALLOCATORS)/$*/nballoc.o ../../utils/utils.o
 	$(CC) $(INTERMEDIATE_OBJS_PATH)/$(TARGET)-$*.o  -L$(BASE_ALLOCATORS)/$* -l$* -o $(TARGET)-$* $(LIBRARY)
 
-$(TARGET)-libc.o: main.c
+$(TARGET)-libc.o: main.c main.h
 	@echo compiling for $@
 	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-libc.o -DALLOCATOR=libc -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)' -D'ALLOCATOR_NAME="libc"'
 
 
-$(TARGET)-%.o: main.c 
+$(TARGET)-%.o: main.c main.h
 	@echo compiling for $@
 	$(CC) main.c $(CFLAGS) -c -o bin/$(TARGET)-$*.o -DALLOCATOR=$* -D'TO_BE_REPLACED_MALLOC(x)=malloc(x)' -D'TO_BE_REPLACED_FREE(x)=free(x)' -D'ALLOCATOR_NAME="$*"'
 
