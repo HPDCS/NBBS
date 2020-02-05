@@ -38,7 +38,7 @@ void * init_run(){
 	
 	while(*start==0);
 #if KERNEL_BD == 0
-	ops[myid] = ITERATIONS;
+	ops[myid] = LS_ITERATIONS;
 	linux_scalability(fixed_size, allocs+myid, failures+myid, frees+myid);
 #else	
 	syscall(134,fixed_order, allocs+myid, failures+myid, frees+myid);

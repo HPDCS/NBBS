@@ -9,8 +9,7 @@
 void* bd_xx_malloc(size_t);
 void  bd_xx_free(FREE_GET_PAR(void*,size_t));
 
-#define TT_ITERATIONS	50ULL
-#define TT_OBJS 		30000ULL
+#include "parameters.h"
 
 
 void threadtest(ALLOC_GET_PAR(unsigned long long fixed_size, unsigned int fixed_order), unsigned int number_of_processes, unsigned long long *allocs, unsigned long long *failures, unsigned long long *frees){
