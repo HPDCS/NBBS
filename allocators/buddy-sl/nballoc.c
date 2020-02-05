@@ -118,7 +118,7 @@ bd_bd_malloc(size_t s) {
 	if (size == 0) {
 		size = 1;
 	}
-	size = (s-1)/8 + 1;
+	size = (s-1)/MIN_ALLOCABLE_BYTES + 1;
 	
 	size = (long)next_pow_of_2(size);
 	
