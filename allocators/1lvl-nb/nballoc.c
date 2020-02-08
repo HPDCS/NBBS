@@ -117,13 +117,13 @@ extern taken_list* takenn;
 
 
 static void init_tree(unsigned long number_of_nodes);
-static unsigned int alloc2(unsigned int, unsigned int);
+static unsigned int alloc2(unsigned long long, unsigned long long);
 //static unsigned int check_parent(node* n);
 //static unsigned int alloc(node* n);
 //static void smarca(node* n, node* upper_bound);
 //static void external_smarca(node* n);
 //static void internal_free_node(node* n, node* upper_bound);
-static void internal_free_node2(unsigned int n, unsigned int upper_bound);
+static void internal_free_node2(unsigned long long n, unsigned long long upper_bound);
 
 #ifdef DEBUG
 nbint  *size_allocated;
@@ -301,10 +301,10 @@ void destroy(){
  
  */
 void* bd_xx_malloc(size_t byte){
-    unsigned int starting_node, last_node, actual, started_at, failed_at_node;
+    unsigned long long starting_node, last_node, actual, started_at, failed_at_node;
     bool restarted = false;
-    unsigned int leaf_position;
-    unsigned int searched_lvl = 0;
+    unsigned long long leaf_position;
+    unsigned long long searched_lvl = 0;
 
     if(tid == -1){
 		tid = __sync_fetch_and_add(&partecipants, 1);
@@ -386,12 +386,12 @@ update_freemap(searched_lvl, actual+1);
  
  */
 
-static unsigned int alloc2(unsigned int n, unsigned int lvl){
+static unsigned int alloc2(unsigned long long n, unsigned long long lvl){
     nbint actual_value;
-    unsigned int failed_at_node;
+    unsigned long long failed_at_node;
     nbint new_value;
     bool is_left_child;
-    unsigned int actual = n;//, son = n;//&parent(actual);
+    unsigned long long actual = n;//, son = n;//&parent(actual);
     
     //actual è il valore dei bit che sono nel nodo prima che ci lavoro
     actual_value = tree[n].val;
@@ -447,12 +447,12 @@ static unsigned int alloc2(unsigned int n, unsigned int lvl){
  @param upper_bound; l'ultimo nodo da smarcare
  */
 
-static inline void smarca2(unsigned int n, unsigned int upper_bound){
+static inline void smarca2(unsigned long long n, unsigned long long upper_bound){
     nbint actual_value;
     nbint new_val;
     bool is_left_child;
-    unsigned int actual = n;//, son;//&parent(n);
-    unsigned int lvl = level_by_idx(actual);
+    unsigned long long actual = n;//, son;//&parent(n);
+    unsigned long long lvl = level_by_idx(actual);
     do{
         //son = actual;
         lvl--;
@@ -500,9 +500,9 @@ static inline void smarca2(unsigned int n, unsigned int upper_bound){
  @param n: nodo da liberare
  @param upper_bound: l'ultimo nodo da liberare
  */
-static inline void internal_free_node2(unsigned int n, unsigned int upper_bound){
-    unsigned int actual;
-    unsigned int runner, lvl;
+static inline void internal_free_node2(unsigned long long n, unsigned long long upper_bound){
+    unsigned long long actual;
+    unsigned long long runner, lvl;
     nbint // curr_val, 
 	old_val; //, or_val;									//SPAA2018
     bool is_left_child;													//SPAA2018

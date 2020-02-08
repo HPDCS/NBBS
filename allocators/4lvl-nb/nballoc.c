@@ -176,11 +176,11 @@ unsigned int partecipants=0;
 
 static void init_tree(unsigned long long number_of_nodes);
 static unsigned long long alloc(unsigned long long n_idx, unsigned long long n_lvl, unsigned long long br_lvl);
-static void marca(node* n, unsigned int upper_bound);
+static void marca(node* n, unsigned long long upper_bound);
 static bool IS_OCCUPIED(unsigned long long, unsigned);
 static unsigned long long check_parent(unsigned long long n_idx, unsigned long long n_lvl);
-static void smarca(node* n, unsigned int upper_bound);
-static void internal_free_node(node* n, unsigned int upper_bound);
+static void smarca(node* n, unsigned long long upper_bound);
+static void internal_free_node(node* n, unsigned long long upper_bound);
 void* bd_xx_malloc(size_t pages);
 
 
@@ -573,7 +573,7 @@ void bd_xx_free(void* n){
 	3) vengo smarcati i grappoli antecedenti (funzione smarca)
  @param n è un nodo generico ma per come facciamo qui la allocazione tutto il suo ramo è marcato.
 */
-static void internal_free_node(node* n, unsigned int upper_bound){
+static void internal_free_node(node* n, unsigned long long upper_bound){
 	unsigned long long old_val, new_val, p_pos, n_pos;
 	bool do_exit = false;
 	
@@ -602,7 +602,7 @@ static void internal_free_node(node* n, unsigned int upper_bound){
  @param n è la radice di un grappolo. Bisogna settare in coalescing il padre.
  @return il valore precedente con un singolo nodo marcato come "coalescing"
  */
-static void marca(node* n, unsigned int upper_bound){
+static void marca(node* n, unsigned long long upper_bound){
 	node* parent = n;
 	unsigned long long old_val, new_val, p_pos;
 	bool is_left_son;
@@ -631,7 +631,7 @@ static void marca(node* n, unsigned int upper_bound){
  @param n: n è la radice di un grappolo (BISOGNA SMARCARE DAL PADRE)
  
  */
-static void smarca(node* n, unsigned int upper_bound){
+static void smarca(node* n, unsigned long long upper_bound){
 	unsigned long long old_val, new_val, p_pos;
 	bool do_exit=false, is_left_son;
 	node *parent;
