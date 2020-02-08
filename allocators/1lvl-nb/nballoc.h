@@ -61,7 +61,7 @@ typedef struct _taken_list{
 
 extern void write_on_a_file_in_ampiezza_start();
 extern __thread unsigned myid;
-extern unsigned int number_of_leaves;
+extern unsigned long long number_of_leaves;
 
 void  bd_xx_free(void* n);
 void* bd_xx_malloc(size_t pages);

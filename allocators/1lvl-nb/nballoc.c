@@ -96,13 +96,13 @@ static node* volatile free_tree = NULL; //array che rappresenta l'albero, tree[0
 static node* volatile real_tree = NULL; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 static node* volatile real_free_tree = NULL; //array che rappresenta l'albero, tree[0] è dummy! l'albero inizia a tree[1]
 static unsigned long overall_memory_size;
-static unsigned int number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
-unsigned int number_of_leaves; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
+static unsigned long long number_of_nodes; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
+unsigned long long number_of_leaves; //questo non tiene presente che tree[0] è dummy! se qua c'è scritto 7 vuol dire che ci sono 7 nodi UTILIZZABILI
 static void* volatile overall_memory = NULL;
 
 static volatile unsigned long levels = NUM_LEVELS; //ROOT è a livello 1, mentre le foglie sono a livello levels
-static unsigned int overall_height;
-static unsigned int max_level; //Ultimo livello utile per un allocazione
+static unsigned long long overall_height;
+static unsigned long long max_level; //Ultimo livello utile per un allocazione
 
 #ifdef BD_SPIN_LOCK
 BD_LOCK_TYPE glock;
@@ -117,7 +117,7 @@ extern taken_list* takenn;
 
 
 static void init_tree(unsigned long number_of_nodes);
-static unsigned int alloc2(unsigned long long, unsigned long long);
+static unsigned long long alloc2(unsigned long long, unsigned long long);
 //static unsigned int check_parent(node* n);
 //static unsigned int alloc(node* n);
 //static void smarca(node* n, node* upper_bound);
@@ -229,12 +229,12 @@ void init(){
 		printf("1lvl-nb: UMA Init complete\n");
 #endif
         printf("\t Total Memory = %luB, %.0fKB, %.0fMB, %.0fGB\n" , overall_memory_size, overall_memory_size/1024.0, overall_memory_size/1048576.0, overall_memory_size/1073741824.0);
-		printf("\t Levels = %u\n", overall_height);
-		printf("\t Leaves = %10u\n", (number_of_nodes+1)/2);
-		printf("\t Nodes  = %10u\n", number_of_nodes);
-		printf("\t Min size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %u\n"   , MIN_ALLOCABLE_BYTES, MIN_ALLOCABLE_BYTES/1024.0, MIN_ALLOCABLE_BYTES/1048576.0, MIN_ALLOCABLE_BYTES/1073741824.0, overall_height);
-		printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %u\n"   , MAX_ALLOCABLE_BYTE, MAX_ALLOCABLE_BYTE/1024.0, MAX_ALLOCABLE_BYTE/1048576.0, MAX_ALLOCABLE_BYTE/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
-		printf("\t Max allocable level %2u\n", max_level);
+		printf("\t Levels = %llu\n", overall_height);
+		printf("\t Leaves = %10llu\n", (number_of_nodes+1)/2);
+		printf("\t Nodes  = %10llu\n", number_of_nodes);
+		printf("\t Min size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %llu\n"   , MIN_ALLOCABLE_BYTES, MIN_ALLOCABLE_BYTES/1024.0, MIN_ALLOCABLE_BYTES/1048576.0, MIN_ALLOCABLE_BYTES/1073741824.0, overall_height);
+		printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %llu\n"   , MAX_ALLOCABLE_BYTE, MAX_ALLOCABLE_BYTE/1024.0, MAX_ALLOCABLE_BYTE/1048576.0, MAX_ALLOCABLE_BYTE/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+		printf("\t Max allocable level %2llu\n", max_level);
     }
 }
 
@@ -331,6 +331,7 @@ void* bd_xx_malloc(size_t byte){
     started_at = actual;
     
     //quando faccio un giro intero ritorno NULL
+    unsigned long long iter = 0;
     do{
         BD_LOCK(&glock);
         failed_at_node = alloc2(actual, searched_lvl);
@@ -343,7 +344,7 @@ void* bd_xx_malloc(size_t byte){
             leaf_position = byte*(actual - overall_memory_size / byte)/MIN_ALLOCABLE_BYTES;
             free_tree[leaf_position].pos = actual;
             //printf("leaf pos %d\n", leaf_position);
-update_freemap(searched_lvl, actual+1);
+			update_freemap(searched_lvl, starting_node+((actual+1)%starting_node));
             return ((char*) overall_memory) + leaf_position*MIN_ALLOCABLE_BYTES; //&tree[actual];
         }        
         //if(failed_at_node == 1){ // il buddy è pieno
@@ -386,7 +387,7 @@ update_freemap(searched_lvl, actual+1);
  
  */
 
-static unsigned int alloc2(unsigned long long n, unsigned long long lvl){
+static unsigned long long alloc2(unsigned long long n, unsigned long long lvl){
     nbint actual_value;
     unsigned long long failed_at_node;
     nbint new_value;
