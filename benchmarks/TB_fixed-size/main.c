@@ -29,6 +29,9 @@ unsigned int fixed_order;
 #include "main.h"
 #endif
 
+
+#include "../../kernel-bd-api/syscall_numbers.h"
+
 void * init_run(){
 	unsigned int j;
 	
@@ -40,7 +43,7 @@ void * init_run(){
 	ops[myid] = CO_ITERATIONS / number_of_processes;
 	fixedsize(fixed_size, number_of_processes, allocs+myid, failures+myid, frees+myid);
 #else	
-	syscall(177,fixed_order, number_of_processes,  allocs+myid, failures+myid, frees+myid);
+	syscall(NR_COSTANT_OCCUPANCY,fixed_order, number_of_processes,  allocs+myid, failures+myid, frees+myid);
 #endif
 	pthread_exit(NULL);
 }

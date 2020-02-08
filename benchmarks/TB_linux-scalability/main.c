@@ -29,6 +29,8 @@ unsigned int fixed_order;
 #endif
 
 
+#include "../../kernel-bd-api/syscall_numbers.h"
+
 void * init_run(){
 	unsigned int j;
 	void *ptr;
@@ -41,7 +43,7 @@ void * init_run(){
 	ops[myid] = LS_ITERATIONS;
 	linux_scalability(fixed_size, allocs+myid, failures+myid, frees+myid);
 #else	
-	syscall(134,fixed_order, allocs+myid, failures+myid, frees+myid);
+	syscall(NR_LINUX_SCALABILITY,fixed_order, allocs+myid, failures+myid, frees+myid);
 #endif
 	pthread_exit(NULL);
 }

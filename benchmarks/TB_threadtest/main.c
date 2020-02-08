@@ -29,6 +29,8 @@ unsigned int fixed_order;
 #include "main.h"
 #endif
 
+#include "../../kernel-bd-api/syscall_numbers.h"
+
 void * init_run(){
 	unsigned int j;
 	
@@ -40,7 +42,7 @@ void * init_run(){
 	ops[myid] = TT_ITERATIONS * TT_OBJS / number_of_processes;
 	threadtest(fixed_size, number_of_processes, allocs+myid, failures+myid, frees+myid);
 #else	
-	syscall(174,fixed_order, number_of_processes,  allocs+myid, failures+myid, frees+myid);
+	syscall(NR_THREADTEST,fixed_order, number_of_processes,  allocs+myid, failures+myid, frees+myid);
 #endif
 	pthread_exit(NULL);
 }

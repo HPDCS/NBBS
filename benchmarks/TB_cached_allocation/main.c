@@ -28,6 +28,7 @@ unsigned int fixed_order;
 #include "main.h"
 #endif
 
+#include "../../kernel-bd-api/syscall_numbers.h"
 
 void * init_run(){
 	unsigned int j;
@@ -38,10 +39,10 @@ void * init_run(){
 	
 	while(*start==0);
 #if KERNEL_BD == 0
-	ops[myid] = ITERATIONS;
-	linux_scalability(fixed_size, allocs+myid, failures+myid, frees+myid);
+	ops[myid] = CA_ITERATIONS;
+	cached_allocation(fixed_size, allocs+myid, failures+myid, frees+myid);
 #else	
-	syscall(134,fixed_order, allocs+myid, failures+myid, frees+myid);
+	syscall(NR_CACHED_ALLOCATION,fixed_order, allocs+myid, failures+myid, frees+myid);
 #endif
 	pthread_exit(NULL);
 }

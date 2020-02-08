@@ -11,7 +11,7 @@ void  bd_xx_free(FREE_GET_PAR(void*,size_t));
 
 #include "parameters.h"
 
-void linux_scalability(ALLOC_GET_PAR(unsigned long long fixed_size, unsigned int fixed_order), unsigned long long *allocs, unsigned long long *failures, unsigned long long *frees){
+void cached_allocation(ALLOC_GET_PAR(unsigned long long fixed_size, unsigned int fixed_order), unsigned long long *allocs, unsigned long long *failures, unsigned long long *frees){
 	unsigned int i, tentativi;
 	#if KERNEL_BD == 0
 	void *obt, *cmp = NULL;
@@ -19,7 +19,7 @@ void linux_scalability(ALLOC_GET_PAR(unsigned long long fixed_size, unsigned int
 	unsigned long long obt, cmp = 0ULL;
 	#endif
 	
-	tentativi = LS_ITERATIONS; // / number_of_processes ;
+	tentativi = CA_ITERATIONS; // / number_of_processes ;
 	i = 0;
 
 	for(i=0;i<tentativi;i++){

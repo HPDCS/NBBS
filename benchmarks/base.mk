@@ -12,7 +12,7 @@ CFLAGS= -I$(BASE_ALLOCATORS)/$* -I../../utils
 #FLAGS= -O3 -g -Wall -I../../utils -MMD -MP -MF $*.d
 LIBRARY = -lpthread
 
-SRCS = main.c main.h parameters.h ../kernel-bd-api/syscall_numbers.h
+SRCS = main.c main.h parameters.h ../../kernel-bd-api/syscall_numbers.h
 
 .SECONDARY:
 
