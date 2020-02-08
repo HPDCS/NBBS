@@ -2,7 +2,7 @@
 #define __TT_PARAMETERS__
 
 
-#define TT_ITERATIONS	200ULL
-#define TT_OBJS 		50000ULL
+#define TT_ITERATIONS	500ULL
+#define TT_OBJS 	50000ULL
 
 #endif
