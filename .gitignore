@@ -26,3 +26,4 @@ perf.data*
 *.cmd
 
 kernel-bd-api/system.conf
+benchmarks/estimate_clock/estimate_clock
