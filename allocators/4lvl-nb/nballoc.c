@@ -354,7 +354,7 @@ if(!actual)	actual = started_at = starting_node + (tid) * ((last_node - starting
 #endif
             leaf_position = byte*(actual - overall_memory_size / byte)/MIN_ALLOCABLE_BYTES;
             free_tree[leaf_position].pos = actual;
-			//update_freemap(target_lvl, actual);
+	update_freemap(target_lvl, actual+1);
             //printf("leaf pos %d\n", leaf_position);
             return ((char*) overall_memory) + leaf_position*MIN_ALLOCABLE_BYTES; //&tree[actual]
 		}

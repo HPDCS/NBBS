@@ -164,7 +164,7 @@ void init(){
 	}
 	
 	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES); //last valid allocable level
-	assert(max_level == 12);
+//	assert(max_level == 12);
     
    if(init_phase ==  0 && __sync_bool_compare_and_swap(&init_phase, 0, 1)){
 
@@ -343,6 +343,7 @@ void* bd_xx_malloc(size_t byte){
             leaf_position = byte*(actual - overall_memory_size / byte)/MIN_ALLOCABLE_BYTES;
             free_tree[leaf_position].pos = actual;
             //printf("leaf pos %d\n", leaf_position);
+update_freemap(searched_lvl, actual+1);
             return ((char*) overall_memory) + leaf_position*MIN_ALLOCABLE_BYTES; //&tree[actual];
         }        
         //if(failed_at_node == 1){ // il buddy è pieno
