@@ -1,4 +1,5 @@
 # Add any directories, files, or patterns you don't want to be tracked by version control
+*.tar.gz
 *.a
 *.so
 *.d
@@ -24,6 +25,8 @@ perf.data*
 *.ko
 *.order
 *.cmd
-
+dat/
+plots/
 kernel-bd-api/system.conf
 benchmarks/estimate_clock/estimate_clock
+results_*_*_*/
