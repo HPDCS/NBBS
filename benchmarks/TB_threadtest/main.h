@@ -1,9 +1,11 @@
 #if KERNEL_BD == 0
 #define ALLOC_GET_PAR(x,y) x
 #define  FREE_GET_PAR(x,y) x
+#define BASE 4096
 #else
 #define ALLOC_GET_PAR(x,y) y
 #define  FREE_GET_PAR(x,y) x,y
+#define BASE 1
 #endif
 
 void* bd_xx_malloc(size_t);
@@ -17,9 +19,11 @@ void threadtest(ALLOC_GET_PAR(unsigned long long fixed_size, unsigned int fixed_
 #if KERNEL_BD == 0
 	void *obt, *cmp = NULL;
 	void **addrs = malloc(sizeof(void*)*tentativi);
+	tentativi /= fixed_size/BASE;
 #else
 	unsigned long long cmp = 0ULL;
 	unsigned long long *addrs = vmalloc(sizeof(void*)*tentativi);
+	tentativi /= BASE >> fixed_order;
 #endif
 
 	i = j = 0;
