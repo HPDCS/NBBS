@@ -17,9 +17,9 @@ if ( tst eq "TBCA" ) set title "Cached Allocation - Bytes=".tsz
 if ( tst eq "LRSN" ) set title             "Larson - Bytes=".tsz
 
 if ( tst eq "LRSN" ) set yrange [-2:60]
-if ( tst eq "TBFS" ) set yrange [-2:60]
-if ( tst eq "TBLS" ) set yrange [-2:60]
-if ( tst eq "TBTT" ) set yrange [-2:60]
+if ( tst eq "TBFS" ) set yrange [-2:30]
+if ( tst eq "TBLS" ) set yrange [-2:30]
+if ( tst eq "TBTT" ) set yrange [-2:30]
 if ( tst eq "TBCA" ) set yrange [-2:60]
 
 if ( tst eq "TBTT" ) if ( sz eq "1048576" ) set yrange [-2:1000]

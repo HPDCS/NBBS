@@ -35,14 +35,17 @@ do
 				#OUT1="${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R$run"; touch $OUT1
 				str="b"
 
-				count=0
+				count=1
 				TS=$default
-				
-				for i in ${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R*; do
-					count=$((count+1))
-					Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
-					TS=`python -c "print($Tim+$TS)"`
-				done
+				if test -f "${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R1"; then
+							count=0
+	TS=0
+					for i in ${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R*; do
+						count=$((count+1))
+						Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
+						TS=`python -c "print($Tim+$TS)"`
+					done
+				fi
 						TS=`python -c "print($TS/$count)"`
 						row=`echo $row $TS`
 			
@@ -66,14 +69,18 @@ echo $headrow > $DAT2.dat
 			#OUT2="${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R$run"; touch $OUT2
 			str="b"
 
-			count=0
+			count=1
 			TS=$default
-			
+			if test -f "${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R1"; then
+				TS=0			
+				count=0
+
 			for i in ${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R*; do
 				count=$((count+1))
 				Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
 				TS=`python -c "print($Tim+$TS)"`
 			done
+			fi
 					TS=`python -c "print($TS/$count)"`
 					row=`echo $row $TS`
 		
@@ -134,14 +141,17 @@ do
 				#OUT4="${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R$run"; touch $OUT4
 				str="b"
 
+			count=1
+			TS=$default
+			if test -f "${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R1"; then
+				TS=0
 				count=0
-				TS=$default
-				
-				for i in ${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R*; do
-					count=$((count+1))
-					Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
-					TS=`python -c "print($Tim+$TS)"`
-				done
+			for i in ${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R*; do
+				count=$((count+1))
+				Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
+				TS=`python -c "print($Tim+$TS)"`
+			done
+			fi
 					TS=`python -c "print($TS/$count)"`
 					row=`echo $row $TS`
 			
@@ -169,15 +179,17 @@ do
 				#OUT4="${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R$run"; touch $OUT4
 				str="b"
 
+			count=1
+			TS=$default
+			if test -f "${FOLDER}/TBCA-$alloc-sz$size-TH$threads-R1"; then
+				TS=0
 				count=0
-				TS=$default
-				
-				for i in ${FOLDER}/TBCA-$alloc-sz$size-TH$threads-R*; do
-					
-					count=$((count+1))
-					Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
-					TS=`python -c "print($Tim+$TS)"`
-				done
+			for i in ${FOLDER}/TBCA-$alloc-sz$size-TH$threads-R*; do
+				count=$((count+1))
+				Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
+				TS=`python -c "print($Tim+$TS)"`
+			done
+			fi
 						TS=`python -c "print($TS/$count)"`
 						row=`echo $row $TS`
 			

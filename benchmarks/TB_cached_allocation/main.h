@@ -19,7 +19,7 @@ void cached_allocation(ALLOC_GET_PAR(unsigned long long fixed_size, unsigned int
 	unsigned long long obt, cmp = 0ULL;
 	#endif
 	
-	tentativi = CA_ITERATIONS / number_of_processes ;
+	tentativi = CA_ITERATIONS; // / number_of_processes ;
 	i = 0;
 
 	for(i=0;i<tentativi;i++){

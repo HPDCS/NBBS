@@ -21,3 +21,5 @@ do
 	done	
 	
 done
+
+pdflatex merge.tex
