@@ -9,6 +9,9 @@ mkdir -p dat/TBFS
 mkdir -p dat/TBCA
 mkdir -p dat/LRSN
 
+
+default=$((30*1900000000))
+
 #crea la prima riga dei file
 headrow=alloc
 for t in $ALLOC_list; do
@@ -33,7 +36,7 @@ do
 				str="b"
 
 				count=0
-				TS=0.0
+				TS=$default
 				
 				for i in ${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R*; do
 					count=$((count+1))
@@ -64,7 +67,7 @@ echo $headrow > $DAT2.dat
 			str="b"
 
 			count=0
-			TS=0.0
+			TS=$default
 			
 			for i in ${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R*; do
 				count=$((count+1))
@@ -132,9 +135,45 @@ do
 				str="b"
 
 				count=0
-				TS=0.0
+				TS=$default
 				
 				for i in ${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R*; do
+					count=$((count+1))
+					Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
+					TS=`python -c "print($Tim+$TS)"`
+				done
+					TS=`python -c "print($TS/$count)"`
+					row=`echo $row $TS`
+			
+			done
+			echo $row 	  >> $DAT4.dat
+		done
+	#done
+done
+
+#######################################################################################################################################
+for size in $SIZE_list
+do
+	DAT5="dat/TBCA/TBCA-$size"; touch $DAT5.dat
+	echo $headrow > $DAT5.dat
+	
+	#for run in $RUN_list
+	#do
+		for threads in $THREAD_list
+		do
+		row=$threads
+			
+			for alloc in $ALLOC_list 
+			do
+				#EX2="./benchmarks/TB_threadtest/TB_threadtest-$alloc $threads $size"
+				#OUT4="${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R$run"; touch $OUT4
+				str="b"
+
+				count=0
+				TS=$default
+				
+				for i in ${FOLDER}/TBCA-$alloc-sz$size-TH$threads-R*; do
+					
 					count=$((count+1))
 					Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
 					TS=`python -c "print($Tim+$TS)"`
@@ -143,7 +182,7 @@ do
 						row=`echo $row $TS`
 			
 			done
-			echo $row 	  >> $DAT4.dat
+			echo $row 	  >> $DAT5.dat
 		done
 	#done
 done
