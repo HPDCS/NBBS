@@ -19,182 +19,41 @@ for t in $ALLOC_list; do
 done
 echo $headrow
 
-
-for size in $SIZE_list
+for test in $TEST_list
 do
-
-	DAT1="dat/TBLS/TBLS-$size"; touch $DAT1.dat
-	echo $headrow > $DAT1.dat
-		for threads in $THREAD_list
-		do
-		row=$threads
-			
-			for alloc in $ALLOC_list 
-			do
-				EX1="./benchmarks/TB_linux-scalability/TB_linux-scalability-$alloc $threads $size"
-				#OUT1="${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R$run"; touch $OUT1
-				str="b"
-
-				count=1
-				TS=$default
-				if test -f "${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R1"; then
-							count=0
-	TS=0
-					for i in ${FOLDER}/TBLS-$alloc-sz$size-TH$threads-R*; do
-						count=$((count+1))
-						Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
-						TS=`python -c "print($Tim+$TS)"`
-					done
-				fi
-						TS=`python -c "print($TS/$count)"`
-						row=`echo $row $TS`
-			
-			done
-			echo $row 	  >> $DAT1.dat
-		done
-	#done
-done
-#############################################################################################################
-for size in $SIZE_list
-do
-DAT2="dat/TBTT/TBTT-$size"; touch $DAT2.dat
-echo $headrow > $DAT2.dat
-	for threads in $THREAD_list
+	for size in $SIZE_list
 	do
-	row=$threads
-		
-		for alloc in $ALLOC_list 
-		do
-			EX2="./benchmarks/TB_threadtest/TB_threadtest-$alloc $threads $size"
-			#OUT2="${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R$run"; touch $OUT2
-			str="b"
 
-			count=1
-			TS=$default
-			if test -f "${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R1"; then
-				TS=0			
-				count=0
-
-			for i in ${FOLDER}/TBTT-$alloc-sz$size-TH$threads-R*; do
-				count=$((count+1))
-				Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
-				TS=`python -c "print($Tim+$TS)"`
-			done
-			fi
-					TS=`python -c "print($TS/$count)"`
-					row=`echo $row $TS`
-		
-		done
-		echo $row 	  >> $DAT2.dat
-	done
-	
-done
-############################################################################################################################
-for size in $SIZE_list
-do
-	DAT3="dat/LRSN/LRSN-$size"; touch $DAT3.dat
-	echo $headrow > $DAT3.dat
-	
-	#for run in $RUN_list
-	#do
-		for threads in $THREAD_list
-		do
-		row=$threads
-			
-			for alloc in $ALLOC_list 
+		DAT1="dat/$test/$test-$size"; touch $DAT1.dat
+		echo $headrow > $DAT1.dat
+			for threads in $THREAD_list
 			do
-				EX3="./benchmarks/larson/larson-$alloc 10 `echo $size $((size*16))` 1000 100 1 $threads"
-				#OUT3="${FOLDER}/LRSN-$alloc-sz$size-TH$threads-R$run"; touch $OUT3
-				str="b"
-
-				count=0
-				TS=0.0
+			row=$threads
 				
-				for i in ${FOLDER}/LRSN-$alloc-sz$size-TH$threads-R*; do
-					count=$((count+1))
-					Tim=`grep "Throughput"  $i | tr -s " " | head -n1 | cut -d' ' -f3`
-					TS=`python -c "print($Tim+$TS)"`
+				for alloc in $ALLOC_list 
+				do
+					str="b"
+
+					count=1
+					TS=$default
+					if test -f "${FOLDER}/$test-$alloc-sz$size-TH$threads-R1"; then
+						count=0
+						TS=0
+						for i in ${FOLDER}/$test-$alloc-sz$size-TH$threads-R*; do
+							count=$((count+1))
+							if [ "$test" == "LRSN" ]; then
+								Tim=`grep "Throughput"  $i | tr -s " " | head -n1 | cut -d' ' -f3`
+							else
+								Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
+							fi
+							TS=`python -c "print($Tim+$TS)"`
+						done
+					fi
+							TS=`python -c "print($TS/$count)"`
+							row=`echo $row $TS`
+				
 				done
-						TS=`python -c "print($TS/$count)"`
-						row=`echo $row $TS`
-			
+				echo $row 	  >> $DAT1.dat
 			done
-			echo $row 	  >> $DAT3.dat
-		done
-	#done
-done
-#######################################################################################################################################
-for size in $SIZE_list
-do
-	DAT4="dat/TBFS/TBFS-$size"; touch $DAT4.dat
-	echo $headrow > $DAT4.dat
-	
-	#for run in $RUN_list
-	#do
-		for threads in $THREAD_list
-		do
-		row=$threads
-			
-			for alloc in $ALLOC_list 
-			do
-				#EX2="./benchmarks/TB_threadtest/TB_threadtest-$alloc $threads $size"
-				#OUT4="${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R$run"; touch $OUT4
-				str="b"
-
-			count=1
-			TS=$default
-			if test -f "${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R1"; then
-				TS=0
-				count=0
-			for i in ${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R*; do
-				count=$((count+1))
-				Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
-				TS=`python -c "print($Tim+$TS)"`
-			done
-			fi
-					TS=`python -c "print($TS/$count)"`
-					row=`echo $row $TS`
-			
-			done
-			echo $row 	  >> $DAT4.dat
-		done
-	#done
-done
-
-#######################################################################################################################################
-for size in $SIZE_list
-do
-	DAT5="dat/TBCA/TBCA-$size"; touch $DAT5.dat
-	echo $headrow > $DAT5.dat
-	
-	#for run in $RUN_list
-	#do
-		for threads in $THREAD_list
-		do
-		row=$threads
-			
-			for alloc in $ALLOC_list 
-			do
-				#EX2="./benchmarks/TB_threadtest/TB_threadtest-$alloc $threads $size"
-				#OUT4="${FOLDER}/TBFS-$alloc-sz$size-TH$threads-R$run"; touch $OUT4
-				str="b"
-
-			count=1
-			TS=$default
-			if test -f "${FOLDER}/TBCA-$alloc-sz$size-TH$threads-R1"; then
-				TS=0
-				count=0
-			for i in ${FOLDER}/TBCA-$alloc-sz$size-TH$threads-R*; do
-				count=$((count+1))
-				Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
-				TS=`python -c "print($Tim+$TS)"`
-			done
-			fi
-						TS=`python -c "print($TS/$count)"`
-						row=`echo $row $TS`
-			
-			done
-			echo $row 	  >> $DAT5.dat
-		done
-	#done
+	done
 done
