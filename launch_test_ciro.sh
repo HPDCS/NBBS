@@ -5,7 +5,7 @@ source config_ciro.sh
 make clean
 make NUM_LEVELS=${NUM_LEVELS} MAX=${MAX} MIN=${MIN}
 
-mkdir ${FOLDER}
+mkdir -p ${FOLDER}
 
 
 for run in $RUN_list
