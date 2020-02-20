@@ -9,6 +9,9 @@ if ( tst eq "LRSN" ) set ylabel offset 0 "Throughput (MOps/sec)"
 if ( sz eq "4096" ) tsz="4KB"
 if ( sz eq "65536" ) tsz="64KB"
 if ( sz eq "1048576" ) tsz="1MB"
+if ( sz eq "32768" ) tsz="32KB"
+if ( sz eq "262144") tsz="256KB"
+
 
 if ( tst eq "TBTT" ) set title        "Thread test - Bytes=".tsz
 if ( tst eq "TBLS" ) set title  "Linux Scalability - Bytes=".tsz
@@ -17,10 +20,10 @@ if ( tst eq "TBCA" ) set title "Cached Allocation - Bytes=".tsz
 if ( tst eq "LRSN" ) set title             "Larson - Bytes=".tsz
 
 if ( tst eq "LRSN" ) set yrange [-2:60]
-if ( tst eq "TBFS" ) set yrange [-2:30]
-if ( tst eq "TBLS" ) set yrange [-2:30]
-if ( tst eq "TBTT" ) set yrange [-2:30]
-if ( tst eq "TBCA" ) set yrange [-2:60]
+if ( tst eq "TBFS" ) set yrange [-2:20]
+if ( tst eq "TBLS" ) set yrange [-2:10]
+if ( tst eq "TBTT" ) set yrange [-2:40]
+if ( tst eq "TBCA" ) set yrange [-2:30]
 
 if ( tst eq "TBTT" ) if ( sz eq "1048576" ) set yrange [-2:1000]
 
