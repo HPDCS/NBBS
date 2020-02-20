@@ -26,7 +26,7 @@ void threadtest(ALLOC_GET_PAR(unsigned long long fixed_size, unsigned int fixed_
 	unsigned long long cmp = 0ULL;
 	unsigned long long *addrs = vmalloc(sizeof(void*)*tentativi);
 	tentativi /= BASE >> fixed_order;
-	tentativi *= BASE >> fixed_order;
+	iterations *= BASE >> fixed_order;
 #endif
 
 	i = j = 0;
