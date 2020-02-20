@@ -43,7 +43,7 @@ $(TARGET)-%-nb: $(SRCS) #$(BASE_ALLOCATORS)/$(TARGET)-%-nb/nballoc.o
 
 $(TARGET)-kernel-sl:  $(SRCS)
 	@echo compiling for $@
-	$(CC) $(FLAGS) main.c  -I../../utils -o $(TARGET)-kernel-sl -DALLOCATOR=kernel-sl  -lpthread -D'ALLOCATOR_NAME="kernel-sl"' -D'KERNEL_BD=1'
+	$(CC) $(FLAGS) main.c  -I../../utils -o $(TARGET)-kernel-sl -DALLOCATOR=kernel-sl  -lnuma -lpthread -D'ALLOCATOR_NAME="kernel-sl"' -D'KERNEL_BD=1'
 
 $(TARGET)-%-sl:  $(SRCS)
 	@echo compiling for $@
