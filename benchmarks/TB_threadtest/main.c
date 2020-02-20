@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "timer.h"
 #include <string.h>
+#include <numaif.h>
 
 void* bd_xx_malloc(size_t);
 void  bd_xx_free(void*);
@@ -42,6 +43,8 @@ void * init_run(){
 	ops[myid] = TT_ITERATIONS * TT_OBJS / number_of_processes;
 	threadtest(fixed_size, number_of_processes, allocs+myid, failures+myid, frees+myid);
 #else	
+	unsigned long nodemask = 0x01;
+	set_mempolicy(MPOL_BIND, &nodemask,sizeof(unsigned long));
 	syscall(NR_THREADTEST,fixed_order, number_of_processes,  allocs+myid, failures+myid, frees+myid);
 #endif
 	pthread_exit(NULL);

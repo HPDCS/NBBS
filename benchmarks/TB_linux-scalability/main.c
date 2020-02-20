@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <numaif.h>
 #include "utils.h"
 #include "timer.h"
 #include <string.h>
@@ -43,6 +44,8 @@ void * init_run(){
 	ops[myid] = LS_ITERATIONS;
 	linux_scalability(fixed_size, allocs+myid, failures+myid, frees+myid);
 #else	
+	unsigned long nodemask = 0x01;
+	set_mempolicy(MPOL_BIND, &nodemask,sizeof(unsigned long));
 	syscall(NR_LINUX_SCALABILITY,fixed_order, allocs+myid, failures+myid, frees+myid);
 #endif
 	pthread_exit(NULL);

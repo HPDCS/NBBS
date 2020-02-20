@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "timer.h"
 #include <string.h>
+#include <numaif.h>
 
 
 unsigned int number_of_processes;
@@ -42,6 +43,8 @@ void * init_run(){
 	ops[myid] = CA_ITERATIONS;
 	cached_allocation(fixed_size, allocs+myid, failures+myid, frees+myid);
 #else	
+	unsigned long nodemask = 0x01;
+	set_mempolicy(MPOL_BIND, &nodemask,sizeof(unsigned long));
 	syscall(NR_CACHED_ALLOCATION,fixed_order, allocs+myid, failures+myid, frees+myid);
 #endif
 	pthread_exit(NULL);
