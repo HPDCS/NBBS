@@ -67,7 +67,7 @@ unsigned long _ni_syscall = NI_SYSCALL;
 
 
 #define AUDIT if (0)
-#define MAX_BD_ORDER 5
+#define MAX_BD_ORDER 7
 
 int valid = 0;
 int last_type = -1;
