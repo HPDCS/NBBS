@@ -46,6 +46,11 @@ do
 							else
 								Tim=`grep "Timer"  $i | head -n1 | cut -d' ' -f4`
 							fi
+							
+							if [ "$alloc" == "kernel-sl" ]; then
+								echo $i `grep "total ops done" $i | cut -d' ' -f6-` `grep "Real" $i | cut -d',' -f1` | grep " 0 R"
+							fi
+							
 							TS=`python -c "print($Tim+$TS)"`
 						done
 					fi
