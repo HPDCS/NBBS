@@ -19,11 +19,11 @@ if ( tst eq "TBFS" ) set title "Constant Occupancy - Bytes=".tsz
 if ( tst eq "TBCA" ) set title "Cached Allocation - Bytes=".tsz 
 if ( tst eq "LRSN" ) set title             "Larson - Bytes=".tsz
 
-if ( tst eq "LRSN" ) set yrange [-2:60]
-if ( tst eq "TBFS" ) set yrange [-2:20]
-if ( tst eq "TBLS" ) set yrange [-2:10]
-if ( tst eq "TBTT" ) set yrange [-2:40]
-if ( tst eq "TBCA" ) set yrange [-2:30]
+if ( tst eq "LRSN" ) set yrange [-2:*]
+if ( tst eq "TBFS" ) set yrange [-2:*]
+if ( tst eq "TBLS" ) set yrange [-2:*]
+if ( tst eq "TBTT" ) set yrange [-2:*]
+if ( tst eq "TBCA" ) set yrange [-2:*]
 
 if ( tst eq "TBTT" ) if ( sz eq "1048576" ) set yrange [-2:1000]
 
@@ -48,7 +48,7 @@ set grid y
 
 set output './plots/'.tst.'-'.sz.'.eps'
 
-plot for [col=2:6] './dat/'.tst.'/'.tst.'-'.sz.'.dat' u 1:(column(col)/d)  w lp ls col  t columnheader(col)
+plot for [col=2:4] './dat/'.tst.'/'.tst.'-'.sz.'.dat' u 1:(column(col)/d)  w lp ls col  t columnheader(col)
 
 
 #set terminal postscript eps enhanced "Helvetica" 22
