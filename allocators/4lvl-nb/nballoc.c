@@ -425,14 +425,15 @@ static unsigned long long alloc(unsigned long long n){
 	n_lvl = level_by_idx(n_pos);
 	container = &tree[n].container->nodes;
 	n_bpos = tree[n].container_pos;
+
 	do{
 		new_val = old_val = *container;
 		
-		if(!IS_ALLOCABLE(new_val, n_pos)){
+		if(!IS_ALLOCABLE(new_val, n_bpos)){
 			return n_pos;
 		}
 		
-		new_val = occupa_container(n_pos, new_val);
+		new_val = occupa_container(n_bpos, new_val);
 		#ifdef BD_SPIN_LOCK
 			*container = old_val = new_val;
 		#endif
