@@ -1,7 +1,8 @@
 include ../Makefile.inc
 
 #TARGET = $(TEST)-ptmalloc3 $(TEST)-libc $(TEST)-hoard 
-TARGET = $(TEST)-ptmalloc3 $(TEST)-libc 
+#TARGET = $(TEST)-ptmalloc3 $(TEST)-libc 
+TARGET = $(TEST)-libc 
 ALLOCATORS_ABS_PATH = $(abspath ../../allocators)
 
 all: $(TARGET)  
