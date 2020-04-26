@@ -18,10 +18,7 @@
 #endif
 
 typedef struct _node{
-    unsigned long long val; //per i bit etc;
-    unsigned int mem_start; //spiazzamento all'interno dell'overall_memory
-    unsigned int mem_size;
-    unsigned int pos; //posizione all'interno dell'array "tree"
+    unsigned long long val; // this maintain the state of a node;
 } node;
 
 #include "../1lvl-nb/nballoc.h"

@@ -1,6 +1,13 @@
 #ifndef __NB_ALLOC_UTILS__
 #define __NB_ALLOC_UTILS__
 
+
+#define NB_ABORT(x) do{\
+    printf("%s", x);\
+    abort();\
+    }while(0)
+    
+
 unsigned int rand_lim(unsigned int limit);
 //unsigned long upper_power_of_two(unsigned long v);
 //unsigned int log2_ (unsigned long value);

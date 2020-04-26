@@ -1,4 +1,4 @@
-/**		      
+/**              
 * This is free software; 
 * You can redistribute it and/or modify this file under the
 * terms of the GNU General Public License as published by the Free Software
@@ -13,10 +13,10 @@
 * this file; if not, write to the Free Software Foundation, Inc.,
 * 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 * 
-* Copyright (c) 2017
+* Copyright (c) 2017 - 2020
 * 
 * 
-* Romolo Marotta 
+* Romolo Marotta  (Contact author)
 * Mauro Ianni
 * Andrea Scarselli
 * 
@@ -27,55 +27,40 @@
 
 #ifndef __NB_ALLOC__
 #define __NB_ALLOC__
+
+
 /****************************************************
-				ALLOCATOR PARAMETES
+                ALLOCATOR PARAMETERS
 ****************************************************/
 
-#ifndef MIN_ALLOCABLE_BYTES
-#define MIN_ALLOCABLE_BYTES 8ULL //(2KB) numero minimo di byte allocabili
-#endif
-#ifndef MAX_ALLOCABLE_BYTE
-#define MAX_ALLOCABLE_BYTE  16384ULL //(16KB)
-#endif
-#ifndef NUM_LEVELS
-#define NUM_LEVELS  20ULL //(16KB)
+#ifndef MIN_ALLOCABLE_BYTES                     // Minimum size for allocation
+#define MIN_ALLOCABLE_BYTES 4096ULL             // Default value
 #endif
 
+#ifndef MAX_ALLOCABLE_BYTE                      // Maximum size for allocation
+#define MAX_ALLOCABLE_BYTE  (4096ULL*1024ULL)   // Default value 
+#endif
 
-#define PAGE_SIZE (4096)
+#ifndef NUM_LEVELS                              // Number of levels of the tree
+#define NUM_LEVELS          12ULL               // Default value 
+#endif
 
 //#define DEBUG
 
-typedef unsigned long long nbint; 
-
-typedef struct _taken_list_elem{
-    struct _taken_list_elem* next;
-    node* elem;
-}taken_list_elem;
-
-typedef struct _taken_list{
-    struct _taken_list_elem* head;
-    unsigned number;
-}taken_list;
-
-
-extern void write_on_a_file_in_ampiezza_start();
-extern __thread unsigned myid;
-extern unsigned long long number_of_leaves;
-
-void  bd_xx_free(void* n);
-void* bd_xx_malloc(size_t pages);
+void  bd_xx_free(void* n);                  // Release API
+void* bd_xx_malloc(size_t bytes);           // Alloc   API
+void  init();                               // Init    API
 
 #ifdef DEBUG
-extern unsigned long long *node_allocated; 
-extern nbint *size_allocated;
+extern unsigned long long *node_allocated;  // Additional variable for debugging
+extern nbint *size_allocated;               // Additional variable for debugging
 #endif
 
-#ifndef BD_SPIN_LOCK
-	#define BD_LOCK_TYPE /**/
-	#define INIT_BD_LOCK /**/
-	#define BD_LOCK(x)   	 /**/
-	#define BD_UNLOCK(x) 	 /**/
+#ifndef BD_SPIN_LOCK                        // Define empty macro for lock API
+    #define BD_LOCK_TYPE     /**/
+    #define INIT_BD_LOCK     /**/
+    #define BD_LOCK(x)       /**/
+    #define BD_UNLOCK(x)     /**/
 #endif
 
 
