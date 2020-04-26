@@ -6,10 +6,10 @@ that adheres to the buddy system specification.
 It also keeps several benchmarks and modules to evaluate NBBS and the
 Linux Kernel Buddy System.
 
-All the code targets x86_64 architecture.
+The code targets x86_64 architectures equipped with Linux.
 
 ----------------------------------
-## Allocators
+## Buddy Allocators
 
 Here, you can find several buddy system allocators.
 In particular:
@@ -40,12 +40,14 @@ The benchmarks are built to run also on kernel side, so you can even evaluate th
    each thread pre-allocates blocks of different order and makes a burst of allocations followed by a burst of memory release operations.
  * Cached allocation: each thread repeatedly allocates and releases an individual memory buffer.
 
+In order to run the benchmark to evaluate the Linux Buddy System (kernel-sl), you need to mount the kernel-bd-api module.
+
 ### Instructions
 
 * Compile just typing `make`
 * In each benchmark folder you will find one executable for each allocator. Run them by typing
 `
-./TB_<bench_name> <num_of_threads> <mem_size>
+./TB_<bench_name>-<allocator> <num_of_threads> <mem_size>
 `
 
 
