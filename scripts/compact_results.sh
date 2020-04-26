@@ -1,13 +1,12 @@
 #!/bin/bash
 
-source config_ciro.sh
+source config.sh
 
 mkdir -p dat
 mkdir -p dat/TBLS
 mkdir -p dat/TBTT
 mkdir -p dat/TBFS
 mkdir -p dat/TBCA
-mkdir -p dat/LRSN
 
 
 default=$((30*1900000000))

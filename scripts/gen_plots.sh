@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source config_ciro.sh
+source config.sh
 
 mkdir -p plots
 rm plots -R
@@ -10,8 +10,8 @@ for size in $SIZE_list
 do
 	for test in $TEST_list
 	do
-		echo gnuplot -e "sz='$size'; tst='$test'" ./plot_ciro.plt
-		gnuplot -e "sz='$size'; tst='$test'" ./plot_ciro.plt
+		echo gnuplot -e "sz='$size'; tst='$test'" ./plot.plt
+		gnuplot -e "sz='$size'; tst='$test'" ./plot.plt
 		mv ./plots/$test-$size.eps ./plots/tmp$test-$size.eps    
 		epstopdf ./plots/tmp$test-$size.eps
 		mv ./plots/tmp$test-$size.eps ./plots/$test-$size.eps    
