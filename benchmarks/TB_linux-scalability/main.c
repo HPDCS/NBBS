@@ -78,7 +78,7 @@ int main(int argc, char**argv){
 	srand(17);
 	
 	if(argc!=3){
-		printf("usage: ./a.out <number of threads>\n");
+		printf("usage: ./a.out <number of threads> <mem size>\n");
 		exit(0);
 	}
 	number_of_processes=atoi(argv[1]);
