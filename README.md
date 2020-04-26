@@ -1,5 +1,4 @@
 #  NBBS: A Non-Blocking Buddy System
-----------------------------------
 
 This repository contains NBBS, a lock-free back-end allocator
 that adheres to the buddy system specification.
