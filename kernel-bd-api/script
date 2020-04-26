@@ -1,5 +1,0 @@
-for i in {1..20}
-do
-./a.out 134 "ciao $i volte"&
-./a.out $1 $2 | ./a.out $1 $2 
-done

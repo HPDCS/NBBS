@@ -1,6 +1,4 @@
-/**		      Copyright (C) 2014-2015 HPDCS Group
-*		       http://www.dis.uniroma1.it/~hpdcs
-* 
+/*
 * This is free software; 
 * You can redistribute it and/or modify this file under the
 * terms of the GNU General Public License as published by the Free Software
@@ -15,12 +13,14 @@
 * this file; if not, write to the Free Software Foundation, Inc.,
 * 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 * 
-* @file timestretch.c 
-* @brief This is the main source for the Linux Kernel Module which implements
-*	 the timestrech module for modifying the quantum assigned to a process.
-* @author Francesco Quaglia
+* Copyright (c) 2017 - 2020
+*  
+* @file bd_api.c 
+* @brief This is the main source for the Linux Kernel Module which allows to 
+* run benchmarks for memory allocator in kernel mode.
 *
-* @date March 11, 2015
+*  @author Romolo Marotta
+*
 */
 #define EXPORT_SYMTAB
 #include <linux/module.h>
@@ -44,9 +44,7 @@
 #define DEBUG if(0)
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Francesco Quaglia <quaglia@dis.uniroma1.it>");
-MODULE_DESCRIPTION("nesting of a new system call on the first entry originall reserved for sys_ni_syscall");
-MODULE_DESCRIPTION("the new system call logs a message into a kernel buffer");
+MODULE_AUTHOR("Romolo Marotta <marotta@diag.uniroma1.it>");
 
 #define MODNAME "bd_api"
 
