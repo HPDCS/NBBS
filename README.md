@@ -19,6 +19,11 @@ In particular:
  * 4lvl-nb: this is the memory optimized version of our NBBS allocator (16x compress ratio);
  * the spin-locked version of the above-mentioned allocators (1lvl-sl and 4lvl-sl).
 
+You can configure the allocator by setting the following macro at compile time:
+ * MIN_ALLOCABLE_BYTES
+ * MAX_ALLOCABLE_BYTES
+ * NUM_LEVELS
+
 ----------------------------------
 
 ## The Benchmark Suite

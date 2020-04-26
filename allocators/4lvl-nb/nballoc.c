@@ -246,7 +246,7 @@ static void init(){
 	number_of_leaves = (1<< (levels-1));
 	overall_memory_size = MIN_ALLOCABLE_BYTES * number_of_leaves;
 	overall_height = levels;
-	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES); //last valid allocable level
+	max_level = overall_height - log2_(MAX_ALLOCABLE_BYTES/MIN_ALLOCABLE_BYTES); //last valid allocable level
 	//max_level = ((unsigned long long)((max_level-1)/4))*4 + 1;//max_level - max_level%4 + 1;  
 
 
@@ -273,7 +273,7 @@ static void init(){
 	printf("\t Nodes  = %10llu\n", number_of_nodes);
 	printf("\t Containers = %llu\n", number_of_container);
 	printf("\t Min size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %2llu\n", MIN_ALLOCABLE_BYTES, MIN_ALLOCABLE_BYTES/1024.0, MIN_ALLOCABLE_BYTES/1048576.0, MIN_ALLOCABLE_BYTES/1073741824.0, overall_height);
-	printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %2llu\n", MAX_ALLOCABLE_BYTE, MAX_ALLOCABLE_BYTE/1024.0, MAX_ALLOCABLE_BYTE/1048576.0, MAX_ALLOCABLE_BYTE/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+	printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %2llu\n", MAX_ALLOCABLE_BYTES, MAX_ALLOCABLE_BYTES/1024.0, MAX_ALLOCABLE_BYTES/1048576.0, MAX_ALLOCABLE_BYTES/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTES/MIN_ALLOCABLE_BYTES));
 	printf("\t Max allocable level %2llu\n", max_level);
 	
 }
@@ -323,7 +323,7 @@ void* bd_xx_malloc(size_t byte){
 		tid = __sync_fetch_and_add(&partecipants, 1);
     }
 	
-	if(byte > MAX_ALLOCABLE_BYTE)
+	if(byte > MAX_ALLOCABLE_BYTES)
 		return NULL;
 		
 	byte = upper_power_of_two(byte);

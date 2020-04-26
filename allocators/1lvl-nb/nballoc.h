@@ -37,8 +37,8 @@
 #define MIN_ALLOCABLE_BYTES 4096ULL             // Default value
 #endif
 
-#ifndef MAX_ALLOCABLE_BYTE                      // Maximum size for allocation
-#define MAX_ALLOCABLE_BYTE  (4096ULL*1024ULL)   // Default value 
+#ifndef MAX_ALLOCABLE_BYTES                      // Maximum size for allocation
+#define MAX_ALLOCABLE_BYTES  (4096ULL*1024ULL)   // Default value 
 #endif
 
 #ifndef NUM_LEVELS                              // Number of levels of the tree

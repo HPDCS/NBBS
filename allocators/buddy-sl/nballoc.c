@@ -19,8 +19,8 @@
 #ifndef MIN_ALLOCABLE_BYTES
 #define MIN_ALLOCABLE_BYTES 8ULL //(2KB) numero minimo di byte allocabili
 #endif
-#ifndef MAX_ALLOCABLE_BYTE
-#define MAX_ALLOCABLE_BYTE  16384ULL //(16KB)
+#ifndef MAX_ALLOCABLE_BYTES
+#define MAX_ALLOCABLE_BYTES  16384ULL //(16KB)
 #endif
 
 #define BD_SPIN_LOCK 1

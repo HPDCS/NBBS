@@ -128,9 +128,9 @@ void init(){
     void *tmp_free_tree;
     bool first = false;
     
-    if(overall_memory_size < MAX_ALLOCABLE_BYTE) NB_ABORT("No enough levels\n");
+    if(overall_memory_size < MAX_ALLOCABLE_BYTES) NB_ABORT("No enough levels\n");
     
-    max_level = overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES);        //last valid allocable level
+    max_level = overall_height - log2_(MAX_ALLOCABLE_BYTES/MIN_ALLOCABLE_BYTES);        //last valid allocable level
     
     if(init_phase ==  0 && __sync_bool_compare_and_swap(&init_phase, 0, 1)){
 
@@ -189,7 +189,7 @@ void init(){
         printf("\t Leaves = %10llu\n", (number_of_nodes+1)/2);
         printf("\t Nodes  = %10llu\n", number_of_nodes);
         printf("\t Min size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %llu\n"   , MIN_ALLOCABLE_BYTES, MIN_ALLOCABLE_BYTES/1024.0, MIN_ALLOCABLE_BYTES/1048576.0, MIN_ALLOCABLE_BYTES/1073741824.0, overall_height);
-        printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %llu\n"   , MAX_ALLOCABLE_BYTE, MAX_ALLOCABLE_BYTE/1024.0, MAX_ALLOCABLE_BYTE/1048576.0, MAX_ALLOCABLE_BYTE/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTE/MIN_ALLOCABLE_BYTES));
+        printf("\t Max size %12lluB, %.0fKB, %.0fMB, %.0fGB at level %llu\n"   , MAX_ALLOCABLE_BYTES, MAX_ALLOCABLE_BYTES/1024.0, MAX_ALLOCABLE_BYTES/1048576.0, MAX_ALLOCABLE_BYTES/1073741824.0, overall_height - log2_(MAX_ALLOCABLE_BYTES/MIN_ALLOCABLE_BYTES));
         printf("\t Max allocable level %2llu\n", max_level);
     }
 }
@@ -239,7 +239,7 @@ void* bd_xx_malloc(size_t byte){
         tid = __sync_fetch_and_add(&partecipants, 1);
 
     // check memory request size
-    if( byte > MAX_ALLOCABLE_BYTE || byte > overall_memory_size)   
+    if( byte > MAX_ALLOCABLE_BYTES || byte > overall_memory_size)   
         return NULL;  
 
     // round to a proper size
