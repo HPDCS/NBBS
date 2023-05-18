@@ -1,5 +1,10 @@
+ifndef CC
 CC=gcc
+endif
+
+ifndef CFLAGS
 CFLAGS=-c -O3 -g -Wall -I../../utils -MMD -MP -MF $*.d
+endif 
 
 ifdef DEBUG
 FLAGS :=$(FLAGS) -DDEBUG
@@ -18,10 +23,6 @@ FLAGS :=$(FLAGS) -DNUM_LEVELS=$(NUM_LEVELS)ULL
 endif
 
 
-ifdef NUM_LEVELS
-FLAGS :=$(FLAGS) -DNUM_LEVELS=$(NUM_LEVELS)ULL
-endif
-
 TARGET = $(notdir $(shell pwd))
 
 OBJS := nballoc.o
@@ -31,13 +32,13 @@ OBJS := nballoc.o
 all: $(OBJS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(FLAGS) $*.c -o $*.o
+	$(CC) $(CFLAGS) $(FLAGS) $*.c -o $*.o -lpthread
 	ld -r $*.o ../../utils/utils.o -o nballoc-$(TARGET).o
 	ar rcs lib$(TARGET).a nballoc-$(TARGET).o
 
 
 	
 clean:
-	rm *.o *.d *.a
+	-rm *.o *.d *.a $(TARGET)
 
 .PHONY: clean

@@ -5,24 +5,25 @@
 
 #include "nballoc.h"
 
-#define MAX_ORDER 						(10U)
+#define MAX_ORDER 						(11U)
 #define NUM_ORDERS						(MAX_ORDER+1)
 #define NUMBER_OF_LEAVES            	((1ULL) << (NUM_LEVELS  -1))
 #define NUMBER_OF_CPUS					(20U)
 #define MEMORY_SIZE 					(MIN_ALLOCABLE_BYTES * NUMBER_OF_LEAVES)
-#define MEMORY_PER_CPU_ZONE				(MEMORY_SIZE/NUMBER_OF_CPUS)
-#define NUMBER_OF_LEAVES_PER_CPU_ZONE 	(MEMORY_PER_CPU_ZONE/MIN_ALLOCABLE_BYTES)
 #define NUMBER_OF_MAX_NODES				(MEMORY_SIZE/MAX_ALLOCABLE_BYTES)
+#define NUMBER_OF_MAX_NODES_PER_CPU  	(NUMBER_OF_MAX_NODES/NUMBER_OF_CPUS)
+#define NUMBER_OF_LEAVES_PER_CPU_ZONE  	(NUMBER_OF_MAX_NODES_PER_CPU << MAX_ORDER)
+#define MEMORY_PER_CPU_ZONE				(NUMBER_OF_LEAVES_PER_CPU_ZONE*MIN_ALLOCABLE_BYTES)
 
 typedef struct __per_cpu_data{
-	unsigned int cpu_zone;
+	int cpu_zone;
 	volatile unsigned int nmi; 
 } cpu_data_t;
 
 typedef struct __klbs_node_t{
 	struct __klbs_node_t *prev;
 	struct __klbs_node_t *next;
-	void *address;
+	char *address;
 	unsigned int idx;
 	unsigned int count;
 	unsigned int zone;

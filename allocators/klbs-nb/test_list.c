@@ -1,3 +1,6 @@
+#define _GNU_SOURCE
+#include <sched.h>
+
 #include <stdio.h>
 #include "klbs.h"
 
@@ -10,7 +13,8 @@ int main(int argc, char**argv){
   	unsigned int list_test = ITEM_TEST;
   	unsigned int count = 0;
   	free_list_t *list = &cpu_zones[0].free_pools[0].free_list;
-
+  	per_cpu_data.cpu_zone = 0;
+  	per_cpu_data.nmi = 0;
   	printf("List test:\n");
   	
   	count = 0;

@@ -1,4 +1,9 @@
 # Add any directories, files, or patterns you don't want to be tracked by version control
+out/
+main_coverage.info
+*.gcov
+*.gcno
+*.gcda
 *.log
 *.pdf
 *.aux
