@@ -230,26 +230,17 @@ static void init_tree(){
 	count_max = 0;
 	total = 0;
 	expected = NUMBER_OF_MAX_NODES;
-	printf("\t| Second pass on nodes...%llu...", offset);
-	fflush(stdout);
-	printf("\n");
-	check = 0;
+	printf("\t| Second pass on nodes...%llu...", offset);fflush(stdout);
     for(i=0;i<NUMBER_OF_LEAVES;i+=offset){
-		if(!check && nodes[i].zone){
-//			printf("check first of zone 1 %u\n", i);
-			check=1;
-		}
     	count_max++;
     	nodes[i].state = MAX_ORDER | LIST | FREE;
     	cpu_zone_t *zone = cpu_zones + nodes[i].zone;
     	free_pool_t *pool= zone->free_pools + cur_order;
-    	//free_list_insert(&pool->free_list, nodes+i);
 
 		nodes[i].next = &pool->free_list.tail;
 		nodes[i].prev = pool->free_list.tail.prev;
 		nodes[i].next->prev = nodes+i;
 		nodes[i].prev->next = nodes+i; 
-		//printf("ADDING zone %u %u\n", nodes[i].zone, i);
 	}
 	printf("Done\n");
 
@@ -263,15 +254,6 @@ static void init_tree(){
 			if(j!=MAX_ORDER){
 				assert(cpu_zones[i].free_pools[j].free_list.head.next == &cpu_zones[i].free_pools[j].free_list.tail);
 				assert(cpu_zones[i].free_pools[j].free_list.tail.prev == &cpu_zones[i].free_pools[j].free_list.head);
-			}
-			else{
-				//printf("BEG %u %u\n", i,j);
-				klbd_node_t *tmp = &cpu_zones[i].free_pools[j].free_list.head;
-				while(tmp != &cpu_zones[i].free_pools[j].free_list.tail){
-				//	printf("%p\n", tmp);
-					tmp = tmp->next;
-				}
-				//printf("END %u %u\n", i,j);
 			}
 		}
 	}
@@ -582,21 +564,9 @@ void* bd_xx_malloc(size_t byte){
  
     for(unsigned char i=0; i<NUMBER_OF_CPUS; i++){
     	unsigned char z = (GET_CURRENT_CPU_ZONE() + i) % NUMBER_OF_CPUS;
-    	
-    	if(i>0){ 
-    		printf("thisw should never happen %u %u %u\n", GET_CURRENT_CPU_ZONE(), i, z);
-      		break;
-      	}
+    	//z = i;
 
-      #ifdef TEST
-    	printf("checking zone %u\n", z);
-	  #endif
-	  
 	    for(unsigned char o=order; o<=MAX_ORDER; o++){
-	      #ifdef TEST
-    		printf("checking order %u stack\n", o);
-    	  #endif
-    		
     		do{
     			node = free_stack_pop(&cpu_zones[z].free_pools[o].free_stack);
     			if(node){
