@@ -481,7 +481,9 @@ begin:
 		if(GET_AVAIL(cur_state) == OCC){
 			if(free_list_remove(node)){
 				new_state = GET_ORDER(cur_state) | GET_AVAIL(cur_state) | UNLINK;
-				__sync_bool_compare_and_swap(&node->state, cur_state, new_state);
+				if(!__sync_bool_compare_and_swap(&node->state, cur_state, new_state)){
+					free_list_insert(list, node);
+				}
 			}
 
 		}
