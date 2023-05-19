@@ -38,6 +38,12 @@
 #define GET_ADDRESS_FROM_NODE(x)		((x)->address)
 #define IS_NMI() 						(per_cpu_data.nmi >= 1)
 
+#define STACK_NODEID_MASK 	(0xffffffff)
+#define STACK_GET_NODEID(x) ((x) & STACK_NODEID_MASK)
+#define STACK_GET_TIE(x)    ((((x) >> 32)+1)<<32)
+#define STACK_INVALID		(0xffffffff)
+#define STACK_EMPTY			(0xfffffff0)
+
 
 static unsigned int partecipants=0;
 static volatile int init_phase                  = 0;
@@ -163,7 +169,7 @@ static void init_tree(){
 	fflush(stdout);
     for(i=0; i<NUMBER_OF_CPUS;i++){
     	for(j=0;j<NUM_ORDERS;j++){
-	    	cpu_zones[i].free_pools[j].free_stack.next = NULL;
+	    	cpu_zones[i].free_pools[j].free_stack.next = STACK_EMPTY;
 
 	    	cpu_zones[i].free_pools[j].free_list.tail.zone = i;
 			cpu_zones[i].free_pools[j].free_list.head.zone = i;
@@ -184,7 +190,7 @@ static void init_tree(){
 
 	for(i=0;i<NUMBER_OF_CPUS;i++){
 		for(unsigned int j=0;j<NUM_ORDERS;j++){
-			assert(cpu_zones[i].free_pools[j].free_stack.next == NULL);
+			assert(cpu_zones[i].free_pools[j].free_stack.next == STACK_EMPTY);
 			assert(cpu_zones[i].free_pools[j].free_list.head.prev == NULL);
 			assert(cpu_zones[i].free_pools[j].free_list.tail.next == NULL);
 			assert(cpu_zones[i].free_pools[j].free_list.head.next == &cpu_zones[i].free_pools[j].free_list.tail);
@@ -194,17 +200,14 @@ static void init_tree(){
 
 	printf("\t| First pass on nodes...");
 	fflush(stdout);
-	unsigned int check = 0;
-	unsigned int check2 = 0;
 	int last_zone = -1;
     for(i=0;i<NUMBER_OF_LEAVES;i++){
     	nodes[i].idx = i;
     	nodes[i].next = nodes[i].prev = NULL;
+    	nodes[i].stack_next = STACK_INVALID;
     	nodes[i].address = overall_memory + i*MIN_ALLOCABLE_BYTES;
 		nodes[i].zone  = GET_ZONE_BY_IDX(i);
 		if(last_zone != nodes[i].zone){
-		//	printf("CHECCK %u %u\n", i, NUMBER_OF_LEAVES_PER_CPU_ZONE, i/NUMBER_OF_LEAVES_PER_CPU_ZONE);
-		//	printf("check first of zone 1 %u\n", i);
 			last_zone++;
 		}
     	nodes[i].count = 0;
@@ -214,7 +217,7 @@ static void init_tree(){
 
 	for(i=0;i<NUMBER_OF_CPUS;i++){
 		for(unsigned int j=0;j<NUM_ORDERS;j++){
-			assert(cpu_zones[i].free_pools[j].free_stack.next == NULL);
+			assert(cpu_zones[i].free_pools[j].free_stack.next == STACK_EMPTY);
 			assert(cpu_zones[i].free_pools[j].free_list.head.prev == NULL);
 			assert(cpu_zones[i].free_pools[j].free_list.tail.next == NULL);
 			assert(cpu_zones[i].free_pools[j].free_list.head.next == &cpu_zones[i].free_pools[j].free_list.tail);
@@ -253,7 +256,7 @@ static void init_tree(){
 	for(i=0;i<NUMBER_OF_CPUS;i++){
 
 		for(unsigned int j=0;j<NUM_ORDERS;j++){
-			assert(cpu_zones[i].free_pools[j].free_stack.next == NULL);
+			assert(cpu_zones[i].free_pools[j].free_stack.next == STACK_EMPTY);
 			assert(cpu_zones[i].free_pools[j].free_list.head.prev == NULL);
 			assert(cpu_zones[i].free_pools[j].free_list.tail.next == NULL);
 
@@ -309,6 +312,7 @@ void destroy(){
 void init(){
     void *tmp_overall_memory;
     bool first = false;
+    assert(NUMBER_OF_LEAVES < ((1ULL << 32)-1));
     
     if(overall_memory_size < MAX_ALLOCABLE_BYTES) NB_ABORT("No enough levels\n");
 
@@ -357,21 +361,46 @@ void init(){
 void __attribute__ ((constructor(500))) premain(){ init(); }
 
 
+
 void free_stack_push(free_stack_t *stack, klbd_node_t *node){
-	klbd_node_t *old_head;
+	unsigned long long old_val, new_tie, new_val, repeat;
 	do{
-		old_head = stack->next;
-		node->next = old_head;
-		node->count= 1;
-		if(old_head) node->count += old_head->count;
-	}while(!__sync_bool_compare_and_swap(&stack->next, old_head, node));
+		repeat = 1;
+		unsigned short cur_state = node->state;
+		ASSERT_NODE(cur_state, GET_REACH(cur_state) == STACK && GET_AVAIL(cur_state) == FREE, "pushing an incompatible node");
+		old_val  		 = stack->next;
+		new_tie  		 = STACK_GET_TIE(old_val); 
+		node->stack_next = STACK_GET_NODEID(old_val);
+		if(node->stack_next == STACK_INVALID) continue;
+		repeat = 0;
+		node->count 	 = 1;
+		new_val  		 = new_tie | node->idx;
+		if(node->stack_next != STACK_EMPTY) node->count += (nodes+node->stack_next)->count;
+	}while(repeat || !__sync_bool_compare_and_swap(&stack->next, old_val, new_val));
 }
 
 klbd_node_t* free_stack_pop(free_stack_t *stack){
 	klbd_node_t *old_head = NULL;
+	unsigned long long old_val, new_tie, new_val, old_id, repeat;
 	do{
-		old_head = stack->next;
-	}while(old_head &&!__sync_bool_compare_and_swap(&stack->next, old_head, old_head->next));
+		repeat = 1;
+		old_val = (unsigned long long)stack->next;
+		new_tie  = STACK_GET_TIE(old_val); 
+		old_id   = STACK_GET_NODEID(old_val);
+		if(old_id == STACK_INVALID)	continue;
+		repeat = 0;
+		new_val  = new_tie;
+		if(old_id != STACK_EMPTY){
+			old_head = nodes + STACK_GET_NODEID(old_val);
+			new_val |= STACK_GET_NODEID(old_head->stack_next);
+		}
+		else{
+			old_head = NULL;
+			new_val |= STACK_EMPTY;
+		}
+			
+	}while(repeat || (old_head &&!__sync_bool_compare_and_swap(&stack->next, old_val, new_val)));
+	if(old_head) old_head->stack_next = STACK_INVALID;
 	return old_head;
 }
 

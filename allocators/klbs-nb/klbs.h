@@ -23,6 +23,7 @@ typedef struct __per_cpu_data{
 typedef struct __klbs_node_t{
 	struct __klbs_node_t *prev;
 	struct __klbs_node_t *next;
+	volatile unsigned long long stack_next;
 	char *address;
 	unsigned int idx;
 	unsigned int count;
@@ -37,7 +38,7 @@ typedef struct __free_list{
 } free_list_t;
 
 typedef struct __free_stack{
-	struct __klbs_node_t * volatile next;
+	volatile unsigned long long next;
 } free_stack_t;
 
 
