@@ -425,19 +425,15 @@ klbd_node_t* get_free_node(cpu_zone_t *z, unsigned short o){
 	free_list_t *list;
 	unsigned short cur_state, new_state;
 	klbd_node_t *node, *next;
+	list = &z->free_pools[o].free_list;
 
 begin:
-	list = &z->free_pools[o].free_list;
 	node = list->head.next;
 		
 	while(true){
-		if(node == &list->tail){
-			node = NULL;
-		  #ifdef TEST
-			printf("EMPTY ORDER %u\n", o);
-		  #endif
-		 	break;
-		}
+		if(node == &list->tail) return NULL;
+		if(!node) goto begin;
+
 		cur_state = node->state;
 
 		assert(GET_REACH(cur_state) != HEAD);
@@ -455,7 +451,7 @@ begin:
 		if(GET_AVAIL(cur_state) == FREE){
 			assert(GET_AVAIL(cur_state) == FREE && GET_REACH(cur_state) == LIST);
 			if(GET_ORDER(cur_state) >= o){
-				new_state = GET_ORDER(cur_state) | GET_REACH(cur_state) | OCC;
+				new_state = GET_ORDER(cur_state) | LIST | OCC;
 				if(__sync_bool_compare_and_swap(&node->state, cur_state, new_state)){
 					assert((GET_ADDRESS_FROM_NODE(node) != (void*)0xffff) && "returning a tail");
 					if(free_list_remove(node)){
