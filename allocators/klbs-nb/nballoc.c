@@ -17,10 +17,12 @@
 
 #define LIST    	(0x400)
 #define STACK   	(0x800)
+#define HEAD   		(0x1000)
+#define TAIL   		(0x2000)
 #define UNLINK 		(0x0)
 
 #define AVAIL_MASK 	(INV|OCC)
-#define REACH_MASK 	(LIST|STACK)
+#define REACH_MASK 	(LIST|STACK|HEAD|TAIL)
 #define ORDER_MASK	(0xff)
 
 #define GET_REACH(x)	((x)&REACH_MASK)
@@ -81,7 +83,24 @@ __sync_fetch_and_add(&per_cpu_data.nmi, -1);\
 #endif
 
 
-
+#define ASSERT_NODE(cur_state, cond, mess) do{\
+		if(!(cond)){\
+		printf("%s:%u: "mess": state %x order %u list %u stack %u unlink %u head %u tail %u inv %u free %u occ %u\n", \
+  		__FUNCTION__,\
+  		__LINE__,\
+  		cur_state,\
+  		GET_ORDER(cur_state),\
+  		GET_REACH(cur_state)==LIST,\
+  		GET_REACH(cur_state)==STACK,\
+  		GET_REACH(cur_state)==UNLINK,\
+  		GET_REACH(cur_state)==HEAD, \
+  		GET_REACH(cur_state)==TAIL, \
+  		GET_AVAIL(cur_state)==INV, \
+  		GET_AVAIL(cur_state)==FREE, \
+  		GET_AVAIL(cur_state)==OCC );\
+		abort();\
+	}\
+}while(0)
 
 
 static inline bool is_left_buddy_from_idx(unsigned int x, unsigned short o){
@@ -100,19 +119,20 @@ static inline klbd_node_t* get_buddy_at_order(klbd_node_t* node, unsigned short 
 bool free_list_insert(free_list_t *list, klbd_node_t *node);
 
 void print_state(unsigned short state){
-  	printf("state %x order %u list %u stack %u unlink %u inv %u free %u occ %u ", 
+  	printf("state %x order %u list %u stack %u unlink %u head %u tail %u inv %u free %u occ %u ", 
   		state, 
   		GET_ORDER(state), 
   		GET_REACH(state)==LIST, 
   		GET_REACH(state)==STACK, 
   		GET_REACH(state)==UNLINK, 
+  		GET_REACH(state)==HEAD, 
+  		GET_REACH(state)==TAIL, 
   		GET_AVAIL(state)==INV, 
   		GET_AVAIL(state)==FREE, 
   		GET_AVAIL(state)==OCC );	
 }
 
 void assert_state(unsigned short state, unsigned short order, unsigned short avail, unsigned short reach){
-	print_state(state);fflush(stdout);
 	assert(GET_ORDER(state) == order);
 	assert(GET_AVAIL(state) == avail);
 	assert(GET_REACH(state) == reach);
@@ -132,7 +152,6 @@ static void init_tree(){
     unsigned long i,j;
     short cur_order;
     unsigned long long offset;
-    unsigned int  cur_zone;
   	unsigned int count_max, expected, total;
     
   	printf("NUMBER_OF_MAX_NODES %llu\n", NUMBER_OF_MAX_NODES);
@@ -148,6 +167,9 @@ static void init_tree(){
 
 	    	cpu_zones[i].free_pools[j].free_list.tail.zone = i;
 			cpu_zones[i].free_pools[j].free_list.head.zone = i;
+
+	    	cpu_zones[i].free_pools[j].free_list.tail.state = j | TAIL;
+	    	cpu_zones[i].free_pools[j].free_list.head.state = j | HEAD;
 			
 			cpu_zones[i].free_pools[j].free_list.tail.address = (void*) 0xffff;
 			cpu_zones[i].free_pools[j].free_list.head.address = (void*) 0xaaaa;;
@@ -409,23 +431,44 @@ begin:
 		 	break;
 		}
 		cur_state = node->state;
-		next = node->next;
-//		printf("FOUND %p next %p head %p tail %p ", node, next, &list->head, &list->tail);
-//		print_state(cur_state);fflush(stdout); 
-	  #ifdef TEST
-		printf("FOUND %p ", node);
-		print_state(cur_state);fflush(stdout); 
-	  #endif
+
+		assert(GET_REACH(cur_state) != HEAD);
+		assert(GET_REACH(cur_state) != TAIL || GET_ORDER(cur_state) != o);
+		if(GET_REACH(cur_state)==TAIL && GET_ORDER(cur_state) != o) goto begin;
+
 		if(GET_REACH(cur_state) != LIST) goto begin;
+
+		next = node->next;
 		if(next == NULL)  goto begin;
+
+		assert(GET_REACH(cur_state) == LIST);
+		assert((GET_ADDRESS_FROM_NODE(node) != (void*)0xffff) && "returning a tail");
+
 		if(GET_AVAIL(cur_state) == FREE){
+			assert(GET_AVAIL(cur_state) == FREE && GET_REACH(cur_state) == LIST);
 			if(GET_ORDER(cur_state) >= o){
 				new_state = GET_ORDER(cur_state) | GET_REACH(cur_state) | OCC;
 				if(__sync_bool_compare_and_swap(&node->state, cur_state, new_state)){
+					assert((GET_ADDRESS_FROM_NODE(node) != (void*)0xffff) && "returning a tail");
 					if(free_list_remove(node)){
 						cur_state = new_state;
 						new_state = GET_ORDER(cur_state) | GET_AVAIL(cur_state) | UNLINK;
-						__sync_bool_compare_and_swap(&node->state, cur_state, new_state);
+						if(!__sync_bool_compare_and_swap(&node->state, cur_state, new_state)){
+							printf("%s:%u: changing state from OCC LIST to OCC UNLINK failed: state %x order %u list %u stack %u unlink %u head %u tail %u inv %u free %u occ %u\n", 
+					  		__FUNCTION__,
+					  		__LINE__,
+					  		cur_state, 
+					  		GET_ORDER(cur_state), 
+					  		GET_REACH(cur_state)==LIST, 
+					  		GET_REACH(cur_state)==STACK, 
+					  		GET_REACH(cur_state)==UNLINK, 
+					  		GET_REACH(cur_state)==HEAD, 
+					  		GET_REACH(cur_state)==TAIL, 
+					  		GET_AVAIL(cur_state)==INV, 
+					  		GET_AVAIL(cur_state)==FREE, 
+					  		GET_AVAIL(cur_state)==OCC );
+							abort();
+						}
 					}
 					return node;
 				}
@@ -440,6 +483,7 @@ begin:
 		}
 		node = next;
 	}
+	assert(false && "this line should bw never executed");
 	return node;
 }
 
@@ -447,20 +491,37 @@ begin:
 void split(klbd_node_t *node){
 	klbd_node_t *buddy;
 	unsigned short cur_state, new_state, order;
+
+	order = GET_ORDER(node->state); assert(order);
 	__sync_fetch_and_add(&node->state, -1);
-	order = GET_ORDER(node->state);
+	order = GET_ORDER(node->state); assert(order);
+	cur_state = node->state;
+	ASSERT_NODE(cur_state, (GET_REACH(cur_state) == UNLINK || GET_REACH(cur_state) == LIST) && GET_AVAIL(cur_state) == OCC, "splitting an incompatible node");
+	
 	buddy = get_buddy(node);
+
+	assert(is_left_buddy_from_idx(node->idx,order));
+	assert(!is_left_buddy_from_idx(buddy->idx,order));
+	assert(buddy != node);
+	
 	cur_state = buddy->state;
 	new_state = order | FREE;
 
+	ASSERT_NODE(cur_state, GET_REACH(cur_state) == UNLINK && GET_AVAIL(cur_state) == INV, "splitting an incompatible node");
+	assert(buddy->prev == NULL);
+	assert(buddy->next == NULL);
+	//assert(STACK_GET_NODEID(buddy->stack_next) == STACK_INVALID);
+
 	if(GET_CURRENT_CPU_ZONE() != GET_ZONE_BY_PTR(node) || IS_NMI()){
 		new_state |= STACK;
-		__sync_bool_compare_and_swap(&buddy->state, cur_state, new_state);
+		if(!__sync_bool_compare_and_swap(&buddy->state, cur_state, new_state)) assert(false && "failed cas for splitting a node");
+		cur_state = buddy->state;
+		ASSERT_NODE(cur_state, GET_REACH(cur_state) == STACK && GET_AVAIL(cur_state) == FREE, "splitting an incompatible node");
 		free_stack_push(&cpu_zones[buddy->zone].free_pools[order].free_stack, buddy);
 	}
 	else{
 		new_state |= LIST;
-		__sync_bool_compare_and_swap(&buddy->state, cur_state, new_state);
+		if(!__sync_bool_compare_and_swap(&buddy->state, cur_state, new_state)) assert(false && "failed cas for splitting a node");
 		free_list_insert(&cpu_zones[buddy->zone].free_pools[order].free_list, buddy);
 	}
 }
@@ -485,11 +546,8 @@ void* bd_xx_malloc(size_t byte){
     if( byte < MIN_ALLOCABLE_BYTES ) 
         byte = MIN_ALLOCABLE_BYTES;
 
-    order = log2_(byte/MIN_ALLOCABLE_BYTES) ;
-
-  #ifdef TEST
-    printf("allocating %lu\n", byte);
-  #endif
+    order = log2_(byte/MIN_ALLOCABLE_BYTES);
+    assert(order);
 
     DISABLE_MIGRATION();
  
@@ -515,51 +573,43 @@ void* bd_xx_malloc(size_t byte){
     			if(node){
     				cur_state = node->state;
     				new_state = GET_ORDER(cur_state) | UNLINK | OCC;
+    				ASSERT_NODE(cur_state, GET_REACH(cur_state) == STACK && GET_AVAIL(cur_state) == FREE, "popped an incompatible node");
     				if(!__sync_bool_compare_and_swap(&node->state, cur_state, new_state)) {
-    					assert((false && "CHANGING STATE FROM A POPPED NODE FAILED"));
-    					continue;
+					  	printf("%s:%u: CHANGING STATE FROM A POPPED NODE FAILED: state %x order %u list %u stack %u unlink %u head %u tail %u inv %u free %u occ %u\n", 
+					  		__FUNCTION__,
+					  		__LINE__,
+					  		cur_state, 
+					  		GET_ORDER(cur_state), 
+					  		GET_REACH(cur_state)==LIST, 
+					  		GET_REACH(cur_state)==STACK, 
+					  		GET_REACH(cur_state)==UNLINK, 
+					  		GET_REACH(cur_state)==HEAD, 
+					  		GET_REACH(cur_state)==TAIL, 
+					  		GET_AVAIL(cur_state)==INV, 
+					  		GET_AVAIL(cur_state)==FREE, 
+					  		GET_AVAIL(cur_state)==OCC );	
+    						abort();
     				}
+					address = GET_ADDRESS_FROM_NODE(node);
+					assert((address != (void*)0xffff) && "returning a tail");
     				break;
     			}
     		}while(node);
 
-			if(node){
-				printf("stuff from stack\n");
-			   	address = GET_ADDRESS_FROM_NODE(node);
-			   	if(address == (void*)0xffff) printf("returning tail\n");
-			}
-
-
-    		if(!node){
-    		  #ifdef TEST
-    			printf("stack search failed\n");
-		    	printf("checking order %u list\n", o);
-			  #endif
-
-				node = get_free_node(&cpu_zones[z],o);
-    		  
-//				if(!node) 
-//    				printf("list search failed %u\n", o);
-    		  #ifdef TEST
-				if(!node) 
-    			printf("list search failed\n");
-			  #endif
-
-    			if(node){
-				   	address = GET_ADDRESS_FROM_NODE(node);
-				   	if(address == (void*)0xffff) printf("returning tail\n");
-    			}
-    		}  
-    		if(node) break;
+    		if(!node) node = get_free_node(&cpu_zones[z],o);
+		   	if(node) {
+	    		address = GET_ADDRESS_FROM_NODE(node);
+			   	assert((address != (void*)0xffff) && "returning a tail");
+    			break;
+    		}
     	}
 		if(node) break;
     }
 
-
     if(!node) goto out;
 
    	address = GET_ADDRESS_FROM_NODE(node);
-   	if(address == (void*)0xffff) printf("returning tail\n");
+   	assert((address != (void*)0xffff) && "returning a tail");
 
 
     while(GET_ORDER(node->state) > order){
@@ -567,17 +617,9 @@ void* bd_xx_malloc(size_t byte){
     }
 
    	address = GET_ADDRESS_FROM_NODE(node);
-   	if(address == (void*)0xffff) printf("returning tail\n");
+   	assert((address != (void*)0xffff) && "returning a tail");
 
 out:
-   	if(per_cpu_data.cpu_zone == 0 && address != overall_memory){
-   		printf("0 returning %u(%p) vs %u(%p)\n", node->idx,address, 0, overall_memory);
-   	}
-   	if(per_cpu_data.cpu_zone == 1 && address != (overall_memory+NUMBER_OF_LEAVES_PER_CPU_ZONE*MIN_ALLOCABLE_BYTES)){
-   		printf("zone of %u:%u %u:%u\n", node->idx, node->zone, nodes[NUMBER_OF_LEAVES_PER_CPU_ZONE].idx, nodes[NUMBER_OF_LEAVES_PER_CPU_ZONE].zone);
-   		printf("1 returning %u(%p) vs %u(%p)\n", node->idx,address, NUMBER_OF_LEAVES_PER_CPU_ZONE, overall_memory+NUMBER_OF_LEAVES_PER_CPU_ZONE*MIN_ALLOCABLE_BYTES);
-   		exit(1);
-   	}
    	ENABLE_MIGRATION();
     return address;
 }
@@ -588,7 +630,13 @@ klbd_node_t* coalesce(klbd_node_t *node){
 	unsigned short order, i, cur_b_state, cur_state = node->state;
 	order = GET_ORDER(cur_state);
 
+	assert(GET_REACH(cur_state) == UNLINK);
+	assert(GET_REACH(cur_state) != HEAD);
+	assert(GET_REACH(cur_state) != TAIL);
+	assert(GET_AVAIL(cur_state) == INV || GET_AVAIL(cur_state) == OCC);
+
 	for(i=order;i < MAX_ORDER;i++){
+		cur_state = node->state;
 		buddy = get_buddy(node);
 		cur_b_state = buddy->state;
 		skip = GET_AVAIL(cur_b_state) != FREE;
@@ -597,14 +645,26 @@ klbd_node_t* coalesce(klbd_node_t *node){
 		
 		if(skip) break;
 
-		if(__sync_bool_compare_and_swap(&buddy->state, cur_b_state, i | INV | LIST)){
+		ASSERT_NODE(cur_b_state, GET_REACH(cur_b_state) == LIST && GET_AVAIL(cur_b_state) == FREE, "coal with buddy in incorrect state");
 
+		if(__sync_bool_compare_and_swap(&buddy->state, cur_b_state, i | INV | LIST)){
+			ASSERT_NODE(buddy->state, GET_REACH(buddy->state) == LIST && GET_AVAIL(buddy->state) == INV, "coal with buddy in incorrect state");
 			free_list_remove(buddy);
-			__sync_bool_compare_and_swap(&buddy->state, i | INV | LIST, i | INV | UNLINK);
+			if(!__sync_bool_compare_and_swap(&buddy->state, i | INV | LIST, i | INV | UNLINK)){
+				assert(false && "failed transition from INV LIST to INV UNLINK");
+			}
 		}
-		else break;
+		else {
+			break;
+		}
+
 		if(is_left_buddy_from_idx(node->idx, i)) node = node;
-		else node = buddy;
+		else{
+			ASSERT_NODE(cur_state, GET_REACH(cur_state) == UNLINK, "coal with linked buddy");
+			if(GET_AVAIL(cur_state) == OCC && !__sync_bool_compare_and_swap(&node->state, i | UNLINK | OCC, i | UNLINK | INV))
+				assert(false && "failed transition from UNLINK OCC to UNLINK INV");
+			node = buddy;
+		} 									              
 		__sync_fetch_and_add(&node->state, 1);
 	}
 	return node;
@@ -614,35 +674,55 @@ klbd_node_t* coalesce(klbd_node_t *node){
 void bd_xx_free(void *ptr){
 	if(!ptr) return;
 	unsigned int idx = (((unsigned long long)ptr) - ((unsigned long long)overall_memory))/MIN_ALLOCABLE_BYTES;
-	if(idx >= NUMBER_OF_LEAVES) {
-		printf("ERROR %p %p %u\n", overall_memory, ptr, idx);
-	}
+	assert(idx < NUMBER_OF_LEAVES);
+
 	klbd_node_t *node = nodes + idx;
-	unsigned short cur_state;
+	unsigned short cur_state, new_state;
 	bool is_unlinked;
 	DISABLE_MIGRATION();
 
 retry:
 	cur_state = node->state;
+	assert(GET_AVAIL(cur_state) == OCC);
+	assert(GET_REACH(cur_state) != HEAD);
+	assert(GET_REACH(cur_state) != TAIL);
+	assert(GET_REACH(cur_state) != STACK);
+
 	if(GET_CURRENT_CPU_ZONE() != GET_ZONE_BY_PTR(node) || IS_NMI()){
 		is_unlinked = GET_REACH(cur_state) == UNLINK; 
-		if(is_unlinked && __sync_bool_compare_and_swap(&node->state, cur_state, GET_ORDER(cur_state) | STACK | FREE ) ){
+		if(is_unlinked){
+			new_state = GET_ORDER(cur_state) | STACK | FREE;
+			if(!__sync_bool_compare_and_swap(&node->state, cur_state, new_state)) 
+				assert(false && "failed free to stack transition");
+			new_state = node->state;
+			ASSERT_NODE(new_state, new_state == (GET_ORDER(cur_state) | STACK | FREE), "change state from OCC UNLINK to FREE STACK goes to unpredicted state");
+			assert(new_state == node->state);
 			free_stack_push(&cpu_zones[GET_ZONE_BY_PTR(node)].free_pools[GET_ORDER(cur_state)].free_stack, node);
 		}
-		else if(!is_unlinked && __sync_bool_compare_and_swap(&node->state, cur_state, GET_ORDER(cur_state) | LIST | FREE )){
-			goto out;
-		}
-		else
-			goto retry;
+		else{
+			assert(GET_REACH(cur_state) == LIST);
+			if(__sync_bool_compare_and_swap(&node->state, cur_state, GET_ORDER(cur_state) | LIST | FREE ))
+				goto out;
+			else
+				goto retry;
+		} 
 	}
 	else{
 		if(GET_REACH(cur_state) == LIST){
-			free_list_remove(node);
-			__sync_bool_compare_and_swap(&node->state, cur_state, GET_ORDER(cur_state) | UNLINK | OCC);
+			if(!free_list_remove(node)) goto retry;
+			assert(GET_AVAIL(cur_state) == OCC);
+			assert(GET_REACH(cur_state) == LIST);
+			if(!__sync_bool_compare_and_swap(&node->state, cur_state, GET_ORDER(cur_state) | UNLINK | OCC))
+				assert(false && "after a failed removal cannot mark as unlink");
 		}
+
+		ASSERT_NODE(cur_state, GET_REACH(cur_state) == UNLINK && GET_AVAIL(cur_state) == OCC, "coalescing a node in incorrect state");
 		node = coalesce(node);
 		cur_state = node->state;
-		__sync_bool_compare_and_swap(&node->state, cur_state, GET_ORDER(cur_state) | LIST | FREE);
+		ASSERT_NODE(cur_state, GET_REACH(cur_state) == UNLINK && (GET_AVAIL(cur_state) == OCC || GET_AVAIL(cur_state) == INV), "coalescing a node in incorrect state");
+		
+		if(!__sync_bool_compare_and_swap(&node->state, cur_state, GET_ORDER(cur_state) | LIST | FREE))
+			assert(false && "after a coalescing cannot mark as list");
 		free_list_insert(&cpu_zones[GET_ZONE_BY_PTR(node)].free_pools[GET_ORDER(cur_state)].free_list, node);
 	}
 out:
