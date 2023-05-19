@@ -26,9 +26,9 @@ typedef struct __klbs_node_t{
 	volatile unsigned long long stack_next;
 	char *address;
 	unsigned int idx;
-	unsigned int count;
 	unsigned int zone;
-	unsigned short state;
+	volatile unsigned int count;
+	volatile unsigned short state;
 } klbd_node_t;
 
 
