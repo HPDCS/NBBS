@@ -54,7 +54,6 @@ static unsigned long long overall_memory_size   = MEMORY_SIZE;
 static klbd_node_t nodes[NUMBER_OF_LEAVES];
 static cpu_zone_t cpu_zones[NUMBER_OF_CPUS];
 
-
 #if !defined(KERNEL_BD) || KERNEL_BD==0  
 #include <sched.h>
 #include <pthread.h>
@@ -64,13 +63,11 @@ __thread cpu_data_t per_cpu_data = {
 };
 #define DISABLE_MIGRATION() 			do{\
 if(per_cpu_data.cpu_zone == -1){\
-per_cpu_data.nmi = 0;\
 per_cpu_data.cpu_zone = __sync_fetch_and_add(&partecipants, 1) % NUMBER_OF_CPUS;\
 cpu_set_t set;\
 CPU_ZERO(&set);\
 CPU_SET(per_cpu_data.cpu_zone, &set);\
 pthread_setaffinity_np(pthread_self(), sizeof(set),&set);\
-printf("mycpu zone %u\n", per_cpu_data.cpu_zone);\
 }\
 }while(0)
 
